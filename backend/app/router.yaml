@@ -1,0 +1,68 @@
+tiers:                       # escalation order, cheapest first
+  - name: lite
+    model: gemini-3.1-flash-lite
+    price_per_m_input_usd: 0.25
+    price_per_m_output_usd: 1.50
+    description: "Fast lookup, formatting, and short classification"
+  - name: standard
+    model: gemini-3-flash-preview
+    price_per_m_input_usd: 0.50
+    price_per_m_output_usd: 3.00
+    description: "Structured extraction and multi-step bounded tasks"
+  - name: pro
+    model: gemini-3.1-pro-preview
+    price_per_m_input_usd: 2.00
+    price_per_m_output_usd: 12.00
+    description: "Deep reasoning, code architecture, and open-ended synthesis"
+default_tier: lite
+
+semantic:
+  threshold: 0.60
+  routes:
+    - name: simple_tasks
+      tier: lite
+      utterances:
+        - "What is the capital of France?"
+        - "Convert 5 miles to kilometers"
+        - "Is this customer feedback positive, negative, or neutral?"
+        - "Summarize this paragraph in one sentence"
+        - "What is 15 percent of 80?"
+        - "Classify this email as spam or not spam"
+        - "Give me a synonym for meticulous"
+        - "What year was Python first released?"
+    - name: structured_and_extraction
+      tier: standard
+      utterances:
+        - "Extract the rubric dimensions and grading criteria from this text into JSON"
+        - "Generate a Mermaid.js flowchart representing this multi-step checkout workflow"
+        - "Answer this comprehension question based strictly on the provided handbook text"
+        - "Parse this invoice text into structured JSON fields with invoice_id and total"
+        - "Summarize the key differences between OAuth2 authorization code and client credentials grant"
+        - "Explain what this 30-line Python function does step by step"
+        - "Solve this high school algebra word problem showing intermediate equations"
+        - "Draft a polite email to a vendor requesting a deadline extension for our audit"
+    - name: complex_reasoning_and_code
+      tier: pro
+      utterances:
+        - "Analyze this Terraform module and explain the security and IAM implications of each resource"
+        - "Architect a distributed multi-agent system in Go using ADK with inspect-and-repair gates"
+        - "Design an enterprise database schema and migration plan for a multi-tenant SaaS application"
+        - "Find and fix subtle race conditions and concurrency bugs in this asyncio event loop implementation"
+        - "Perform a mathematical proof of convergence for this gradient descent optimization algorithm"
+        - "Critique this high school essay against a state ELA rubric with specific evidence and scores"
+        - "Compose an original technical essay contrasting vector similarity search algorithms HNSW and ScaNN"
+        - "Refactor this legacy monolithic service into clean domain-driven design microservices"
+
+classifier:
+  tier: lite
+
+cascade:
+  start_tier: lite
+  min_confidence: 70
+  max_escalations: 2
+
+cache:
+  similarity_threshold: 0.95
+  ttl_hours: 24
+  max_temperature: 0.3
+  collection: thrifty_cache

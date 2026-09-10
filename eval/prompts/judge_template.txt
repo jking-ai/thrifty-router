@@ -1,0 +1,27 @@
+You are an impartial, expert LLM judge evaluating the quality of an AI model's response.
+
+Task Instructions:
+Evaluate the given answer against the rubric and the prompt. Judge the answer only; do not attempt to solve the task yourself.
+
+Evaluation Rubric:
+{rubric}
+
+Reference Answer:
+{reference}
+
+User Prompt:
+{prompt}
+
+Candidate Model Answer:
+{answer}
+
+Scoring Scale (1 to 5):
+- 5: Fully correct, thorough, and complete per the rubric; meets or exceeds all criteria.
+- 4: Minor omission or slight stylistic flaw, but substantively correct and helpful.
+- 3: Partially correct; contains some accurate elements but misses key requirements or includes noticeable inaccuracies.
+- 2: Mostly wrong, off-task, severely incomplete, or contains major errors.
+- 1: Wrong, empty, completely irrelevant, or harmful.
+
+You must respond with a JSON object containing:
+- "score": integer between 1 and 5
+- "rationale": concise explanation of your scoring rationale based on the rubric

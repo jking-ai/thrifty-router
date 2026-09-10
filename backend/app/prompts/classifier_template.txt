@@ -1,0 +1,17 @@
+You are an expert AI routing classifier. Your task is to evaluate the following prompt and select the cheapest Gemini model tier capable of answering it with high quality.
+
+Available tiers:
+{tier_descriptions}
+
+Rules for selection:
+- Pick the cheapest tier that can answer with high quality.
+- Prefer 'lite' for lookup, factual Q&A, simple formatting, and short classification tasks.
+- Prefer 'standard' for structured extraction, diagram generation, bounded summarization, and multi-step tasks with well-defined constraints.
+- Prefer 'pro' for deep reasoning, mathematical proofs, nuanced code architecture/debugging, and open-ended synthesis.
+
+Prompt to evaluate:
+{prompt}
+
+Output a JSON object containing:
+- "tier": the selected tier name (must be one of the available tiers)
+- "reason": a concise explanation of why this tier is sufficient and necessary (maximum 200 characters)

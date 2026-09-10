@@ -1,0 +1,1 @@
+Please provide a thorough, accurate, and complete response to the user's prompt. After your full response, on the final line by itself with no extra characters, write CONFIDENCE: <0-100> reflecting an integer between 0 and 100 on how likely your answer is fully correct and complete, where 100 means completely certain.

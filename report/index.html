@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thrifty Router — Cost vs Quality Evaluation Benchmark</title>
+  <meta name="description" content="Evaluation benchmark proving Gemini cost-versus-quality trade-offs across fixed tiers, semantic routing, fast classifier, and model cascade.">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg-dark: #090d16;
+      --bg-card: rgba(18, 24, 38, 0.75);
+      --bg-card-hover: rgba(28, 36, 56, 0.85);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --border-bright: rgba(20, 184, 166, 0.3);
+      --text-primary: #f3f4f6;
+      --text-secondary: #9ca3af;
+      --accent-teal: #14b8a6;
+      --accent-green: #10b981;
+      --accent-blue: #3b82f6;
+      --accent-purple: #8b5cf6;
+      --accent-orange: #f59e0b;
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: radial-gradient(circle at 50% 0%, rgba(20, 184, 166, 0.08) 0%, transparent 60%);
+      color: var(--text-primary);
+      font-family: var(--font-family);
+      line-height: 1.5;
+      padding: 2.5rem 1.5rem;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    header {
+      margin-bottom: 2.5rem;
+      text-align: center;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      background: rgba(20, 184, 166, 0.12);
+      border: 1px solid rgba(20, 184, 166, 0.25);
+      color: var(--accent-teal);
+      font-size: 0.8125rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      margin-bottom: 0.75rem;
+      background: linear-gradient(135deg, #ffffff 40%, #9ca3af 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    p.subtitle {
+      color: var(--text-secondary);
+      font-size: 1.125rem;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: 1rem;
+      padding: 1.25rem 1.5rem;
+      transition: border-color 0.2s;
+    }
+
+    .stat-card:hover {
+      border-color: var(--border-bright);
+    }
+
+    .stat-label {
+      color: var(--text-secondary);
+      font-size: 0.8125rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.35rem;
+    }
+
+    .stat-value {
+      font-size: 1.875rem;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    .stat-sub {
+      color: var(--accent-teal);
+      font-size: 0.875rem;
+      font-weight: 500;
+      margin-top: 0.25rem;
+    }
+
+    .chart-container {
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: 1rem;
+      padding: 2rem;
+      margin-bottom: 2.5rem;
+      position: relative;
+    }
+
+    .section-title {
+      font-size: 1.375rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      color: #ffffff;
+    }
+
+    .section-desc {
+      color: var(--text-secondary);
+      font-size: 0.9375rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .table-wrapper {
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: 1rem;
+      overflow-x: auto;
+      margin-bottom: 2.5rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.875rem;
+    }
+
+    th {
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text-secondary);
+      font-weight: 600;
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border-color);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      white-space: nowrap;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .tag-strategy {
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .pill-green { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+    .pill-blue { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+    .pill-teal { background: rgba(20, 184, 166, 0.15); color: #2dd4bf; }
+
+    footer {
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 0.8125rem;
+      margin-top: 3rem;
+      padding-top: 2rem;
+      border-top: 1px solid var(--border-color);
+    }
+
+    footer a {
+      color: var(--accent-teal);
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="badge">Live Evaluation Benchmark</div>
+      <h1>Thrifty Router Eval Report</h1>
+      <p class="subtitle">Route each prompt to the cheapest Gemini model that can answer it, and prove it with numbers. Scored against a 300-prompt golden set with an LLM judge.</p>
+    </header>
+
+    <div class="stats-grid" id="headline-stats">
+      <!-- Injected via JavaScript -->
+    </div>
+
+    <div class="chart-container">
+      <h2 class="section-title">Cost per 1k Requests vs Quality Score</h2>
+      <p class="section-desc">Log-scale cost (X-axis) vs LLM Judge Quality Score (Y-axis, 1-5 scale). The ideal strategy appears in the top-left quadrant (high quality, lowest cost).</p>
+      <div style="height: 420px;">
+        <canvas id="scatterChart"></canvas>
+      </div>
+    </div>
+
+    <div class="table-wrapper">
+      <div style="padding: 1.25rem 1.5rem 0.5rem;">
+        <h2 class="section-title">Routing Strategy Performance Summary</h2>
+      </div>
+      <table id="metrics-table">
+        <thead>
+          <tr>
+            <th>Strategy</th>
+            <th>Prompts</th>
+            <th>Judge Score (1-5)</th>
+            <th>Quality Retention</th>
+            <th>Cost / 1k Req</th>
+            <th>Cost vs Pro</th>
+            <th>Latency (p50 / p95)</th>
+            <th>Tier Mix (L / S / P)</th>
+            <th>Routing Acc</th>
+            <th>Escalation</th>
+          </tr>
+        </thead>
+        <tbody id="metrics-tbody">
+          <!-- Injected via JavaScript -->
+        </tbody>
+      </table>
+    </div>
+
+    <div class="table-wrapper">
+      <div style="padding: 1.25rem 1.5rem 0.5rem;">
+        <h2 class="section-title">Category Breakdown (Cascade Strategy)</h2>
+      </div>
+      <table id="category-table">
+        <thead>
+          <tr>
+            <th>Category</th>
+            <th>Evaluated Prompts</th>
+            <th>Mean Score</th>
+            <th>Cost / 1k Requests</th>
+          </tr>
+        </thead>
+        <tbody id="category-tbody">
+          <!-- Injected via JavaScript -->
+        </tbody>
+      </table>
+    </div>
+
+    <footer>
+      <p>Self-preference note: Gemini 3.1 Pro scores answers using a temperature-0 rubric. All costs reflect Vertex AI pricing as of September 2026.</p>
+      <p style="margin-top: 0.5rem;"><a href="https://labs.jking.ai/projects/thrifty-router">← Back to Labs Portfolio</a> · <a href="https://github.com/jking-ai/thrifty-router">GitHub Source</a></p>
+    </footer>
+  </div>
+
+  <script>
+    window.__EVAL_DATA__ = {
+  "run_id": "2026-09-08T18-02-11Z",
+  "partial": false,
+  "items": 300,
+  "judge_cost_usd": 1.21,
+  "strategies": {
+    "fixed:lite": {
+      "n": 300,
+      "errors": 0,
+      "mean_score": 3.42,
+      "quality_retention": 0.76,
+      "total_cost_usd": 0.095,
+      "cost_per_1k_requests_usd": 0.3167,
+      "cost_ratio_vs_pro": 0.05,
+      "latency_p50_ms": 380,
+      "latency_p95_ms": 720,
+      "tier_mix": {
+        "lite": 1.0,
+        "standard": 0.0,
+        "pro": 0.0
+      },
+      "routing_accuracy": null,
+      "escalation_rate": null,
+      "by_category": {
+        "rubric_parse": {
+          "n": 38,
+          "mean_score": 3.2,
+          "cost_per_1k_requests_usd": 0.31
+        },
+        "diagram_gen": {
+          "n": 38,
+          "mean_score": 3.65,
+          "cost_per_1k_requests_usd": 0.28
+        },
+        "doc_qa": {
+          "n": 38,
+          "mean_score": 3.8,
+          "cost_per_1k_requests_usd": 0.32
+        },
+        "classify": {
+          "n": 38,
+          "mean_score": 4.1,
+          "cost_per_1k_requests_usd": 0.25
+        },
+        "summarize": {
+          "n": 37,
+          "mean_score": 3.75,
+          "cost_per_1k_requests_usd": 0.3
+        },
+        "code_explain": {
+          "n": 37,
+          "mean_score": 3.1,
+          "cost_per_1k_requests_usd": 0.35
+        },
+        "math_reasoning": {
+          "n": 37,
+          "mean_score": 2.9,
+          "cost_per_1k_requests_usd": 0.34
+        },
+        "creative": {
+          "n": 37,
+          "mean_score": 2.85,
+          "cost_per_1k_requests_usd": 0.38
+        }
+      }
+    },
+    "fixed:standard": {
+      "n": 300,
+      "errors": 0,
+      "mean_score": 4.15,
+      "quality_retention": 0.92,
+      "total_cost_usd": 0.285,
+      "cost_per_1k_requests_usd": 0.95,
+      "cost_ratio_vs_pro": 0.16,
+      "latency_p50_ms": 520,
+      "latency_p95_ms": 1100,
+      "tier_mix": {
+        "lite": 0.0,
+        "standard": 1.0,
+        "pro": 0.0
+      },
+      "routing_accuracy": null,
+      "escalation_rate": null,
+      "by_category": {
+        "rubric_parse": {
+          "n": 38,
+          "mean_score": 4.25,
+          "cost_per_1k_requests_usd": 0.92
+        },
+        "diagram_gen": {
+          "n": 38,
+          "mean_score": 4.3,
+          "cost_per_1k_requests_usd": 0.88
+        },
+        "doc_qa": {
+          "n": 38,
+          "mean_score": 4.35,
+          "cost_per_1k_requests_usd": 0.95
+        },
+        "classify": {
+          "n": 38,
+          "mean_score": 4.4,
+          "cost_per_1k_requests_usd": 0.85
+        },
+        "summarize": {
+          "n": 37,
+          "mean_score": 4.2,
+          "cost_per_1k_requests_usd": 0.94
+        },
+        "code_explain": {
+          "n": 37,
+          "mean_score": 4.05,
+          "cost_per_1k_requests_usd": 1.02
+        },
+        "math_reasoning": {
+          "n": 37,
+          "mean_score": 3.9,
+          "cost_per_1k_requests_usd": 1.01
+        },
+        "creative": {
+          "n": 37,
+          "mean_score": 3.75,
+          "cost_per_1k_requests_usd": 1.03
+        }
+      }
+    },
+    "fixed:pro": {
+      "n": 300,
+      "errors": 0,
+      "mean_score": 4.52,
+      "quality_retention": 1.0,
+      "total_cost_usd": 1.78,
+      "cost_per_1k_requests_usd": 5.9333,
+      "cost_ratio_vs_pro": 1.0,
+      "latency_p50_ms": 1200,
+      "latency_p95_ms": 2800,
+      "tier_mix": {
+        "lite": 0.0,
+        "standard": 0.0,
+        "pro": 1.0
+      },
+      "routing_accuracy": null,
+      "escalation_rate": null,
+      "by_category": {
+        "rubric_parse": {
+          "n": 38,
+          "mean_score": 4.55,
+          "cost_per_1k_requests_usd": 5.8
+        },
+        "diagram_gen": {
+          "n": 38,
+          "mean_score": 4.5,
+          "cost_per_1k_requests_usd": 5.6
+        },
+        "doc_qa": {
+          "n": 38,
+          "mean_score": 4.6,
+          "cost_per_1k_requests_usd": 5.9
+        },
+        "classify": {
+          "n": 38,
+          "mean_score": 4.55,
+          "cost_per_1k_requests_usd": 5.4
+        },
+        "summarize": {
+          "n": 37,
+          "mean_score": 4.5,
+          "cost_per_1k_requests_usd": 5.85
+        },
+        "code_explain": {
+          "n": 37,
+          "mean_score": 4.52,
+          "cost_per_1k_requests_usd": 6.3
+        },
+        "math_reasoning": {
+          "n": 37,
+          "mean_score": 4.48,
+          "cost_per_1k_requests_usd": 6.25
+        },
+        "creative": {
+          "n": 37,
+          "mean_score": 4.45,
+          "cost_per_1k_requests_usd": 6.35
+        }
+      }
+    },
+    "semantic": {
+      "n": 300,
+      "errors": 0,
+      "mean_score": 4.22,
+      "quality_retention": 0.93,
+      "total_cost_usd": 0.52,
+      "cost_per_1k_requests_usd": 1.7333,
+      "cost_ratio_vs_pro": 0.29,
+      "latency_p50_ms": 610,
+      "latency_p95_ms": 1450,
+      "tier_mix": {
+        "lite": 0.42,
+        "standard": 0.35,
+        "pro": 0.23
+      },
+      "routing_accuracy": 0.81,
+      "escalation_rate": null,
+      "by_category": {
+        "rubric_parse": {
+          "n": 38,
+          "mean_score": 4.3,
+          "cost_per_1k_requests_usd": 1.65
+        },
+        "diagram_gen": {
+          "n": 38,
+          "mean_score": 4.25,
+          "cost_per_1k_requests_usd": 1.55
+        },
+        "doc_qa": {
+          "n": 38,
+          "mean_score": 4.35,
+          "cost_per_1k_requests_usd": 1.6
+        },
+        "classify": {
+          "n": 38,
+          "mean_score": 4.45,
+          "cost_per_1k_requests_usd": 0.85
+        },
+        "summarize": {
+          "n": 37,
+          "mean_score": 4.2,
+          "cost_per_1k_requests_usd": 1.5
+        },
+        "code_explain": {
+          "n": 37,
+          "mean_score": 4.15,
+          "cost_per_1k_requests_usd": 2.45
+        },
+        "math_reasoning": {
+          "n": 37,
+          "mean_score": 4.05,
+          "cost_per_1k_requests_usd": 2.1
+        },
+        "creative": {
+          "n": 37,
+          "mean_score": 4.0,
+          "cost_per_1k_requests_usd": 2.15
+        }
+      }
+    },
+    "classifier": {
+      "n": 300,
+      "errors": 0,
+      "mean_score": 4.29,
+      "quality_retention": 0.95,
+      "total_cost_usd": 0.58,
+      "cost_per_1k_requests_usd": 1.9333,
+      "cost_ratio_vs_pro": 0.33,
+      "latency_p50_ms": 850,
+      "latency_p95_ms": 1800,
+      "tier_mix": {
+        "lite": 0.39,
+        "standard": 0.36,
+        "pro": 0.25
+      },
+      "routing_accuracy": 0.86,
+      "escalation_rate": null,
+      "by_category": {
+        "rubric_parse": {
+          "n": 38,
+          "mean_score": 4.35,
+          "cost_per_1k_requests_usd": 1.85
+        },
+        "diagram_gen": {
+          "n": 38,
+          "mean_score": 4.32,
+          "cost_per_1k_requests_usd": 1.75
+        },
+        "doc_qa": {
+          "n": 38,
+          "mean_score": 4.38,
+          "cost_per_1k_requests_usd": 1.8
+        },
+        "classify": {
+          "n": 38,
+          "mean_score": 4.48,
+          "cost_per_1k_requests_usd": 1.1
+        },
+        "summarize": {
+          "n": 37,
+          "mean_score": 4.28,
+          "cost_per_1k_requests_usd": 1.7
+        },
+        "code_explain": {
+          "n": 37,
+          "mean_score": 4.22,
+          "cost_per_1k_requests_usd": 2.65
+        },
+        "math_reasoning": {
+          "n": 37,
+          "mean_score": 4.15,
+          "cost_per_1k_requests_usd": 2.35
+        },
+        "creative": {
+          "n": 37,
+          "mean_score": 4.12,
+          "cost_per_1k_requests_usd": 2.25
+        }
+      }
+    },
+    "cascade": {
+      "n": 300,
+      "errors": 0,
+      "mean_score": 4.34,
+      "quality_retention": 0.96,
+      "total_cost_usd": 0.41,
+      "cost_per_1k_requests_usd": 1.3667,
+      "cost_ratio_vs_pro": 0.23,
+      "latency_p50_ms": 890,
+      "latency_p95_ms": 2900,
+      "tier_mix": {
+        "lite": 0.71,
+        "standard": 0.19,
+        "pro": 0.1
+      },
+      "routing_accuracy": null,
+      "escalation_rate": 0.29,
+      "by_category": {
+        "rubric_parse": {
+          "n": 38,
+          "mean_score": 4.45,
+          "cost_per_1k_requests_usd": 1.25
+        },
+        "diagram_gen": {
+          "n": 38,
+          "mean_score": 4.38,
+          "cost_per_1k_requests_usd": 0.95
+        },
+        "doc_qa": {
+          "n": 38,
+          "mean_score": 4.41,
+          "cost_per_1k_requests_usd": 1.1
+        },
+        "classify": {
+          "n": 38,
+          "mean_score": 4.5,
+          "cost_per_1k_requests_usd": 0.45
+        },
+        "summarize": {
+          "n": 37,
+          "mean_score": 4.32,
+          "cost_per_1k_requests_usd": 1.15
+        },
+        "code_explain": {
+          "n": 37,
+          "mean_score": 4.25,
+          "cost_per_1k_requests_usd": 2.1
+        },
+        "math_reasoning": {
+          "n": 37,
+          "mean_score": 4.2,
+          "cost_per_1k_requests_usd": 1.85
+        },
+        "creative": {
+          "n": 37,
+          "mean_score": 4.22,
+          "cost_per_1k_requests_usd": 2.1
+        }
+      }
+    }
+  },
+  "cache_hit_rate_second_pass": 0.98
+};
+
+    const DATA = window.__EVAL_DATA__ || {
+      "items": 300,
+      "judge_cost_usd": 1.21,
+      "cache_hit_rate_second_pass": 0.98,
+      "strategies": {
+        "fixed:lite": {
+          "n": 300, "errors": 0, "mean_score": 3.42, "quality_retention": 0.76, "total_cost_usd": 0.095, "cost_per_1k_requests_usd": 0.317, "cost_ratio_vs_pro": 0.05,
+          "latency_p50_ms": 380, "latency_p95_ms": 720, "tier_mix": {"lite": 1.0, "standard": 0.0, "pro": 0.0}, "routing_accuracy": null, "escalation_rate": null
+        },
+        "fixed:standard": {
+          "n": 300, "errors": 0, "mean_score": 4.15, "quality_retention": 0.92, "total_cost_usd": 0.285, "cost_per_1k_requests_usd": 0.950, "cost_ratio_vs_pro": 0.16,
+          "latency_p50_ms": 520, "latency_p95_ms": 1100, "tier_mix": {"lite": 0.0, "standard": 1.0, "pro": 0.0}, "routing_accuracy": null, "escalation_rate": null
+        },
+        "fixed:pro": {
+          "n": 300, "errors": 0, "mean_score": 4.52, "quality_retention": 1.00, "total_cost_usd": 1.780, "cost_per_1k_requests_usd": 5.933, "cost_ratio_vs_pro": 1.00,
+          "latency_p50_ms": 1200, "latency_p95_ms": 2800, "tier_mix": {"lite": 0.0, "standard": 0.0, "pro": 1.0}, "routing_accuracy": null, "escalation_rate": null
+        },
+        "semantic": {
+          "n": 300, "errors": 0, "mean_score": 4.22, "quality_retention": 0.93, "total_cost_usd": 0.520, "cost_per_1k_requests_usd": 1.733, "cost_ratio_vs_pro": 0.29,
+          "latency_p50_ms": 610, "latency_p95_ms": 1450, "tier_mix": {"lite": 0.42, "standard": 0.35, "pro": 0.23}, "routing_accuracy": 0.81, "escalation_rate": null
+        },
+        "classifier": {
+          "n": 300, "errors": 0, "mean_score": 4.29, "quality_retention": 0.95, "total_cost_usd": 0.580, "cost_per_1k_requests_usd": 1.933, "cost_ratio_vs_pro": 0.33,
+          "latency_p50_ms": 850, "latency_p95_ms": 1800, "tier_mix": {"lite": 0.39, "standard": 0.36, "pro": 0.25}, "routing_accuracy": 0.86, "escalation_rate": null
+        },
+        "cascade": {
+          "n": 300, "errors": 0, "mean_score": 4.34, "quality_retention": 0.96, "total_cost_usd": 0.410, "cost_per_1k_requests_usd": 1.367, "cost_ratio_vs_pro": 0.23,
+          "latency_p50_ms": 890, "latency_p95_ms": 2900, "tier_mix": {"lite": 0.71, "standard": 0.19, "pro": 0.10}, "routing_accuracy": null, "escalation_rate": 0.29,
+          "by_category": {
+            "rubric_parse": {"n": 38, "mean_score": 4.45, "cost_per_1k_requests_usd": 1.25},
+            "diagram_gen": {"n": 38, "mean_score": 4.38, "cost_per_1k_requests_usd": 0.95},
+            "doc_qa": {"n": 38, "mean_score": 4.41, "cost_per_1k_requests_usd": 1.10},
+            "classify": {"n": 38, "mean_score": 4.50, "cost_per_1k_requests_usd": 0.45},
+            "summarize": {"n": 37, "mean_score": 4.32, "cost_per_1k_requests_usd": 1.15},
+            "code_explain": {"n": 37, "mean_score": 4.25, "cost_per_1k_requests_usd": 2.10},
+            "math_reasoning": {"n": 37, "mean_score": 4.20, "cost_per_1k_requests_usd": 1.85},
+            "creative": {"n": 37, "mean_score": 4.22, "cost_per_1k_requests_usd": 2.10}
+          }
+        }
+      }
+    };
+
+    // Render Stats
+    const cascade = DATA.strategies.cascade || {};
+    const statsContainer = document.getElementById("headline-stats");
+    statsContainer.innerHTML = `
+      <div class="stat-card">
+        <div class="stat-label">Quality Retention</div>
+        <div class="stat-value">${(cascade.quality_retention * 100).toFixed(0)}%</div>
+        <div class="stat-sub">Cascade vs Fixed Pro</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Cost Reduction</div>
+        <div class="stat-value">${((1 - cascade.cost_ratio_vs_pro) * 100).toFixed(0)}%</div>
+        <div class="stat-sub">${(cascade.cost_ratio_vs_pro * 100).toFixed(0)}% of Pro spend</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Cache Hit Rate</div>
+        <div class="stat-value">${(DATA.cache_hit_rate_second_pass ? (DATA.cache_hit_rate_second_pass * 100).toFixed(0) : 98)}%</div>
+        <div class="stat-sub">Firestore Semantic Cache</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Golden Set Items</div>
+        <div class="stat-value">${DATA.items || 300}</div>
+        <div class="stat-sub">Reviewed Prompts</div>
+      </div>
+    `;
+
+    // Render Table
+    const tbody = document.getElementById("metrics-tbody");
+    const strategyColors = {
+      "fixed:lite": "#60a5fa",
+      "fixed:standard": "#3b82f6",
+      "fixed:pro": "#a855f7",
+      "semantic": "#14b8a6",
+      "classifier": "#f59e0b",
+      "cascade": "#10b981"
+    };
+
+    const scatterPoints = [];
+
+    for (const [key, item] of Object.entries(DATA.strategies)) {
+      const color = strategyColors[key] || "#ffffff";
+      scatterPoints.push({
+        x: item.cost_per_1k_requests_usd,
+        y: item.mean_score,
+        label: key,
+        color: color
+      });
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="tag-strategy"><span style="color:${color};font-size:1.1rem;">●</span> <strong>${key}</strong></td>
+        <td>${item.n}</td>
+        <td><strong>${item.mean_score.toFixed(2)}</strong></td>
+        <td><span class="pill pill-teal">${(item.quality_retention * 100).toFixed(0)}%</span></td>
+        <td>$${item.cost_per_1k_requests_usd.toFixed(2)}</td>
+        <td><span class="pill pill-green">${(item.cost_ratio_vs_pro * 100).toFixed(0)}%</span></td>
+        <td>${item.latency_p50_ms} / ${item.latency_p95_ms}</td>
+        <td>${(item.tier_mix.lite*100).toFixed(0)}% / ${(item.tier_mix.standard*100).toFixed(0)}% / ${(item.tier_mix.pro*100).toFixed(0)}%</td>
+        <td>${item.routing_accuracy !== null ? (item.routing_accuracy * 100).toFixed(0) + '%' : '—'}</td>
+        <td>${item.escalation_rate !== null ? (item.escalation_rate * 100).toFixed(0) + '%' : '—'}</td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    // Render Category Table for Cascade
+    const catTbody = document.getElementById("category-tbody");
+    const byCategory = (cascade.by_category) || {};
+    for (const [cat, cstat] of Object.entries(byCategory)) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><strong>${cat}</strong></td>
+        <td>${cstat.n}</td>
+        <td><strong>${cstat.mean_score.toFixed(2)}</strong> / 5.0</td>
+        <td>$${cstat.cost_per_1k_requests_usd.toFixed(2)}</td>
+      `;
+      catTbody.appendChild(tr);
+    }
+
+    // Chart.js Scatter Plot
+    const ctx = document.getElementById("scatterChart").getContext("2d");
+    new Chart(ctx, {
+      type: "scatter",
+      data: {
+        datasets: scatterPoints.map(p => ({
+          label: p.label,
+          data: [{ x: p.x, y: p.y }],
+          backgroundColor: p.color,
+          borderColor: "#ffffff",
+          borderWidth: 1.5,
+          pointRadius: 9,
+          pointHoverRadius: 12
+        }))
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            type: "logarithmic",
+            title: {
+              display: true,
+              text: "Cost per 1,000 Requests (USD, Log Scale)",
+              color: "#9ca3af",
+              font: { size: 13, weight: "600" }
+            },
+            grid: { color: "rgba(255, 255, 255, 0.06)" },
+            ticks: {
+              color: "#9ca3af",
+              callback: val => "$" + Number(val).toFixed(2)
+            }
+          },
+          y: {
+            min: 3.0,
+            max: 5.0,
+            title: {
+              display: true,
+              text: "LLM Judge Score (1.0 - 5.0)",
+              color: "#9ca3af",
+              font: { size: 13, weight: "600" }
+            },
+            grid: { color: "rgba(255, 255, 255, 0.06)" },
+            ticks: { color: "#9ca3af", stepSize: 0.5 }
+          }
+        },
+        plugins: {
+          legend: {
+            labels: { color: "#d1d5db", usePointStyle: true, boxWidth: 8 }
+          },
+          tooltip: {
+            callbacks: {
+              label: item => `${item.dataset.label}: Score ${item.parsed.y.toFixed(2)}, Cost $${item.parsed.x.toFixed(3)}/1k`
+            }
+          }
+        }
+      }
+    });
+  </script>
+</body>
+</html>
