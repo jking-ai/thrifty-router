@@ -44,17 +44,31 @@ cd eval
 # Run evaluation test suite
 pytest -v tests/
 
-# Validate golden dataset schema & distribution
+# Regenerate the golden set from the hand-written prompt bank, then validate it
+python3 scripts/generate_golden_helper.py golden/golden_set.jsonl
 python3 scripts/validate_golden.py golden/golden_set.jsonl
 
-# Run evaluation suite across strategies
-python3 run_eval.py --golden golden/golden_set.jsonl --strategies baseline lite_only semantic classifier cascade --sample-size 50
+# Replay the golden set through every strategy (run from the repo root; see
+# docs/local-testing-guide.md for the local backend settings a full run needs)
+cd ..
+python3 eval/run_eval.py --base-url http://localhost:8000 --api-key local-eval-key \
+  --strategies fixed:lite,fixed:standard,fixed:pro,semantic,classifier,cascade \
+  --max-spend-usd 12 --concurrency 4 --cache-replay --out eval/results/$(date -u +%Y-%m-%dT%H-%M-%SZ)
 
-# Run LLM-as-a-judge grading
-python3 judge.py --eval-dir results/latest
+# Retry the handful of 429/timeout failures in place before judging
+python3 eval/scripts/retry_failed_responses.py --base-url http://localhost:8000 --api-key local-eval-key \
+  --results eval/results/<run-id>
 
-# Generate HTML & JSON benchmark reports
-python3 report.py --eval-dir results/latest --output-dir ../report
+# Score every response with the Pro judge
+python3 eval/judge.py --base-url http://localhost:8000 --api-key local-eval-key \
+  --results eval/results/<run-id> --max-spend-usd 8 --concurrency 4   # add --resume after an interruption
+
+# Generate the HTML report, data.json, and golden.json
+python3 eval/report.py --results eval/results/<run-id>
+
+# Re-render the report pages from the committed summary without raw results
+# (use this after editing report/template.html or the golden set)
+python3 eval/report.py --summary report/data.json
 ```
 
 ### Deployment & Smoke Testing

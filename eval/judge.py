@@ -10,6 +10,9 @@ import time
 from typing import Any, Dict, List, Optional
 import httpx
 
+JUDGE_ATTEMPTS = 3
+RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
+
 JUDGE_SCHEMA = {
     "type": "object",
     "properties": {
@@ -64,10 +67,28 @@ async def score_single_response(
         "tier": "pro",
         "temperature": 0.0,
         "json_schema": JUDGE_SCHEMA,
+        # Gemini 3.x counts thinking tokens against the output budget; the gateway
+        # default (1024 in production) can truncate the JSON mid-rationale.
+        "max_output_tokens": 8192,
+        # Never serve a judgment from the semantic cache.
+        "use_cache": False,
     }
 
     try:
-        r = await client.post(f"{base_url}/api/v1/complete", headers=headers, json=payload)
+        r = None
+        for attempt in range(JUDGE_ATTEMPTS):
+            try:
+                r = await client.post(f"{base_url}/api/v1/complete", headers=headers, json=payload)
+            except (httpx.TimeoutException, httpx.TransportError):
+                if attempt == JUDGE_ATTEMPTS - 1:
+                    raise
+                await asyncio.sleep(2.0 * (attempt + 1))
+                continue
+            # Retry transient upstream failures (quota 429s surface as 502/503 from the gateway)
+            if r.status_code in RETRYABLE_STATUSES and attempt < JUDGE_ATTEMPTS - 1:
+                await asyncio.sleep(2.0 * (attempt + 1))
+                continue
+            break
         if r.status_code == 200:
             res_json = r.json()
             raw_judge_output = res_json.get("output", "{}")
@@ -108,6 +129,8 @@ async def run_judge(
     results_dir: str,
     max_spend_usd: float = 3.0,
     golden_set_path: str = "eval/golden/golden_set.jsonl",
+    concurrency: int = 1,
+    resume: bool = False,
 ) -> None:
     responses_path = os.path.join(results_dir, "responses.jsonl")
     if not os.path.exists(responses_path):
@@ -128,36 +151,55 @@ async def run_judge(
     print(f"Loaded {len(responses)} responses to score.")
     judgments_path = os.path.join(results_dir, "judgments.jsonl")
 
+    # Resume: keep judgments that already have a score and only score the rest.
+    kept: List[Dict[str, Any]] = []
+    if resume and os.path.exists(judgments_path):
+        with open(judgments_path, "r", encoding="utf-8") as f:
+            for line in f:
+                if line.strip():
+                    row = json.loads(line)
+                    if row.get("score") is not None:
+                        kept.append(row)
+        done = {(row["item_id"], row["strategy_label"]) for row in kept}
+        responses = [r for r in responses if (r["item_id"], r["strategy_label"]) not in done]
+        print(f"Resuming: {len(kept)} judgments kept, {len(responses)} responses left to score.")
+
     total_judge_spend = 0.0
     aborted = False
-    concurrency = 4
+    concurrency = max(1, concurrency)
     sem = asyncio.Semaphore(concurrency)
 
     timeout = httpx.Timeout(120.0, connect=10.0)
     async with httpx.AsyncClient(timeout=timeout) as client:
+        async def judge_one(resp_entry: Dict[str, Any]) -> Dict[str, Any]:
+            item_id = resp_entry["item_id"]
+            golden_item = golden_items.get(item_id, {"id": item_id, "prompt": "", "rubric": ""})
+            async with sem:
+                return await score_single_response(
+                    client=client,
+                    base_url=base_url,
+                    api_key=api_key,
+                    template=template,
+                    item=golden_item,
+                    resp_entry=resp_entry,
+                )
+
         with open(judgments_path, "w", encoding="utf-8") as out_f:
-            for resp_entry in responses:
+            for row in kept:
+                out_f.write(json.dumps(row) + "\n")
+            # Judge in chunks of `concurrency`; concurrency 1 is sequential.
+            for start in range(0, len(responses), concurrency):
                 if aborted:
                     break
-                item_id = resp_entry["item_id"]
-                golden_item = golden_items.get(item_id, {"id": item_id, "prompt": "", "rubric": ""})
-
-                async with sem:
-                    judg = await score_single_response(
-                        client=client,
-                        base_url=base_url,
-                        api_key=api_key,
-                        template=template,
-                        item=golden_item,
-                        resp_entry=resp_entry,
-                    )
+                chunk = responses[start:start + concurrency]
+                judgments = await asyncio.gather(*(judge_one(entry) for entry in chunk))
+                for judg in judgments:
                     total_judge_spend += judg.get("judge_cost_usd", 0.0)
                     out_f.write(json.dumps(judg) + "\n")
                     out_f.flush()
-
-                    if total_judge_spend >= max_spend_usd:
-                        print(f"⚠ Judge spend ceiling of ${max_spend_usd:.2f} reached. Halting.")
-                        aborted = True
+                if total_judge_spend >= max_spend_usd:
+                    print(f"⚠ Judge spend ceiling of ${max_spend_usd:.2f} reached. Halting.")
+                    aborted = True
 
     print(f"\n✓ Completed judging! Wrote judgments to: {judgments_path}")
     print(f"Total judge spend: ${total_judge_spend:.4f}")
@@ -169,6 +211,8 @@ def main():
     parser.add_argument("--api-key", required=True, help="Gateway API Key")
     parser.add_argument("--results", required=True, help="Results directory containing responses.jsonl")
     parser.add_argument("--max-spend-usd", type=float, default=3.0, help="Maximum spend ceiling for judging")
+    parser.add_argument("--concurrency", type=int, default=4, help="Concurrent judge requests (default 4)")
+    parser.add_argument("--resume", action="store_true", help="Keep scored lines in judgments.jsonl and score only the rest")
     args = parser.parse_args()
 
     asyncio.run(
@@ -177,6 +221,8 @@ def main():
             api_key=args.api_key,
             results_dir=args.results,
             max_spend_usd=args.max_spend_usd,
+            concurrency=args.concurrency,
+            resume=args.resume,
         )
     )
 
