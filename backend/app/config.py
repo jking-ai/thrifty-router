@@ -40,7 +40,9 @@ class Settings(BaseSettings):
     daily_budget_usd: float = 2.0
     complete_limits: str = "10/minute;200/day"
     max_prompt_chars: int = 20000
-    max_output_tokens: int = 1024
+    # Gemini 3.x counts thinking tokens against this budget; 1024 truncated most
+    # pro-tier answers on the golden set (thinking alone ran up to ~2000 tokens).
+    max_output_tokens: int = 8192
 
     # Embedding configuration (Phase 2 & Phase 4)
     embedding_model: str = "gemini-embedding-001"
