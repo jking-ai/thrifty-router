@@ -1,5 +1,13 @@
 {
   "projects": {},
-  "targets": {},
+  "targets": {
+    "jking-ai-labs": {
+      "hosting": {
+        "router-report": [
+          "thrifty-router"
+        ]
+      }
+    }
+  },
   "etags": {}
 }
