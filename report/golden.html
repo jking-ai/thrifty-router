@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thrifty Router — Golden Set Explorer</title>
+  <meta name="description" content="Browse the 300-prompt golden set that every Thrifty Router routing strategy is benchmarked against: eight task categories, three expected Gemini tiers, one grading rubric per prompt.">
+  <link rel="stylesheet" href="report.css">
+  <style>
+    .provenance-steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-top: 1.25rem;
+    }
+
+    .step {
+      border: 1px solid var(--border-color);
+      border-radius: 0.75rem;
+      padding: 1rem 1.1rem;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .step-num {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--accent-teal);
+      margin-bottom: 0.35rem;
+    }
+
+    .step h3 {
+      font-size: 0.9375rem;
+      font-weight: 600;
+      margin-bottom: 0.3rem;
+      color: #ffffff;
+    }
+
+    .step p {
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+    }
+
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      padding: 1.5rem 1.5rem 1rem;
+    }
+
+    .controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .controls-label {
+      color: var(--text-secondary);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      min-width: 5.5rem;
+    }
+
+    .chip {
+      border: 1px solid var(--border-color);
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text-secondary);
+      border-radius: 9999px;
+      padding: 0.3rem 0.8rem;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+
+    .chip:hover { color: var(--text-primary); border-color: rgba(255, 255, 255, 0.2); }
+
+    .chip[aria-pressed="true"] {
+      background: rgba(20, 184, 166, 0.15);
+      border-color: var(--accent-teal);
+      color: var(--accent-teal);
+    }
+
+    .chip .count {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      opacity: 0.75;
+      margin-left: 0.3rem;
+    }
+
+    .search {
+      flex: 1;
+      min-width: 240px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-color);
+      border-radius: 0.6rem;
+      color: var(--text-primary);
+      padding: 0.6rem 0.9rem;
+      font-size: 0.9rem;
+      font-family: inherit;
+      outline: none;
+    }
+
+    .search:focus { border-color: var(--accent-teal); }
+
+    .result-count {
+      color: var(--text-secondary);
+      font-size: 0.8125rem;
+      margin-left: auto;
+    }
+
+    #golden-table td { white-space: normal; vertical-align: top; }
+    #golden-table td.prompt { min-width: 320px; color: var(--text-primary); }
+    #golden-table td.rubric { min-width: 260px; color: var(--text-secondary); font-size: 0.8125rem; }
+    #golden-table td.nowrap { white-space: nowrap; }
+
+    .empty {
+      padding: 2.5rem;
+      text-align: center;
+      color: var(--text-secondary);
+    }
+
+    .link-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem 1.5rem;
+      margin-top: 1.25rem;
+      font-size: 0.875rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <nav class="site-nav" aria-label="Report pages">
+      <a href="./">Benchmark Report</a>
+      <a href="golden" aria-current="page">Golden Set</a>
+      <a href="https://github.com/jking-ai/thrifty-router" target="_blank" rel="noopener noreferrer">GitHub</a>
+    </nav>
+
+    <header>
+      <div class="badge">Evaluation Golden Set</div>
+      <h1>Golden Set Explorer</h1>
+      <p class="subtitle">The 300 hand-written prompts behind every number on the benchmark report. Each one carries a task category, the Gemini tier a reviewer expects to be sufficient, the rubric the LLM judge scores against, and a reference answer when one exists.</p>
+    </header>
+
+    <div class="stats-grid" id="golden-stats">
+      <!-- Injected via JavaScript -->
+    </div>
+
+    <div class="card">
+      <h2 class="section-title">How the set was built</h2>
+      <p class="section-desc">Every prompt is written by hand and carries its own source material, so nothing depends on a document the model cannot see. The set is generated from a prompt bank in the repository, so it is reproducible and diffable.</p>
+      <div class="provenance-steps">
+        <div class="step">
+          <div class="step-num">01</div>
+          <h3>24 seed archetypes</h3>
+          <p>One archetype per category and tier, each with a written justification for why that tier should be enough.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">02</div>
+          <h3>Written by hand</h3>
+          <p>300 distinct prompts, each with the rubric the judge grades against. Rubrics, handbook excerpts, code, and passages are inline.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">03</div>
+          <h3>Validated</h3>
+          <p>Schema and distribution checks enforce a 40 / 35 / 25 split across lite, standard, and pro and an even spread across categories.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">04</div>
+          <h3>Reference answers</h3>
+          <p>Prompts with one right answer carry a reference the judge can check against. Open-ended prompts are graded on the rubric alone.</p>
+        </div>
+      </div>
+      <div class="link-row">
+        <a href="https://github.com/jking-ai/thrifty-router/blob/main/eval/golden/seed_tasks.md" target="_blank" rel="noopener noreferrer">Seed tasks</a>
+        <a href="https://github.com/jking-ai/thrifty-router/blob/main/eval/golden/golden_set.jsonl" target="_blank" rel="noopener noreferrer">Raw golden_set.jsonl</a>
+        <a href="https://github.com/jking-ai/thrifty-router/blob/main/eval/scripts/generate_golden_helper.py" target="_blank" rel="noopener noreferrer">Prompt bank</a>
+        <a href="https://github.com/jking-ai/thrifty-router/blob/main/eval/scripts/validate_golden.py" target="_blank" rel="noopener noreferrer">Validation script</a>
+        <a href="golden.json">golden.json</a>
+      </div>
+    </div>
+
+    <div class="table-wrapper">
+      <div class="controls">
+        <div class="controls-row">
+          <input type="search" class="search" id="search" placeholder="Search prompts, rubrics, and references…" aria-label="Search prompts, rubrics, and references">
+          <span class="result-count" id="result-count"></span>
+        </div>
+        <div class="controls-row" id="category-chips">
+          <span class="controls-label">Category</span>
+        </div>
+        <div class="controls-row" id="tier-chips">
+          <span class="controls-label">Expected tier</span>
+        </div>
+      </div>
+      <table id="golden-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Category</th>
+            <th>Expected Tier</th>
+            <th>Prompt</th>
+            <th>Judge Rubric</th>
+            <th>Reference</th>
+          </tr>
+        </thead>
+        <tbody id="golden-tbody">
+          <tr><td colspan="6" class="empty">Loading golden set…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <footer>
+      <p>Expected tier is the cheapest Gemini tier a reviewer judged sufficient for the prompt. It is the label routing accuracy is measured against, not a guarantee about model behavior.</p>
+      <p style="margin-top: 0.5rem;"><a href="./">← Back to Benchmark Report</a> · <a href="https://labs.jking.ai/projects/thrifty-router">Labs Portfolio</a> · <a href="https://github.com/jking-ai/thrifty-router">GitHub Source</a></p>
+    </footer>
+  </div>
+
+  <script>
+    const TIERS = ["lite", "standard", "pro"];
+    const TIER_LABEL = { lite: "Lite", standard: "Standard", pro: "Pro" };
+
+    const state = { category: "all", tier: "all", q: "" };
+    let ITEMS = [];
+
+    const escapeHtml = (s) => String(s ?? "")
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+
+    const prettyCategory = (c) => c.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase()).replace(/\bQa\b/, "QA");
+
+    function readUrlState() {
+      const params = new URLSearchParams(location.search);
+      state.category = params.get("category") || "all";
+      state.tier = params.get("tier") || "all";
+      state.q = params.get("q") || "";
+    }
+
+    function writeUrlState() {
+      const params = new URLSearchParams();
+      if (state.category !== "all") params.set("category", state.category);
+      if (state.tier !== "all") params.set("tier", state.tier);
+      if (state.q) params.set("q", state.q);
+      const qs = params.toString();
+      history.replaceState(null, "", qs ? `?${qs}` : location.pathname);
+    }
+
+    function countBy(items, key) {
+      const counts = {};
+      for (const it of items) counts[it[key]] = (counts[it[key]] || 0) + 1;
+      return counts;
+    }
+
+    function renderStats() {
+      const byTier = countBy(ITEMS, "expected_tier");
+      const categories = Object.keys(countBy(ITEMS, "category"));
+      const reviewed = ITEMS.filter((it) => it.reviewed).length;
+      document.getElementById("golden-stats").innerHTML = `
+        <div class="stat-card">
+          <div class="stat-label">Prompts</div>
+          <div class="stat-value">${ITEMS.length}</div>
+          <div class="stat-sub">${reviewed} reviewed</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Categories</div>
+          <div class="stat-value">${categories.length}</div>
+          <div class="stat-sub">${Math.min(...Object.values(countBy(ITEMS, "category")))}–${Math.max(...Object.values(countBy(ITEMS, "category")))} prompts each</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Expected Tier Mix</div>
+          <div class="stat-value">${TIERS.map((t) => byTier[t] || 0).join(" / ")}</div>
+          <div class="stat-sub">Lite / Standard / Pro</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Reference Answers</div>
+          <div class="stat-value">${ITEMS.filter((it) => it.reference).length}</div>
+          <div class="stat-sub">Prompts with a checkable answer</div>
+        </div>
+      `;
+    }
+
+    function makeChip(label, value, pressed, count) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "chip";
+      b.dataset.value = value;
+      b.setAttribute("aria-pressed", pressed ? "true" : "false");
+      b.innerHTML = escapeHtml(label) + (count !== undefined ? `<span class="count">${count}</span>` : "");
+      return b;
+    }
+
+    function renderChips() {
+      const catCounts = countBy(ITEMS, "category");
+      const catRow = document.getElementById("category-chips");
+      catRow.appendChild(makeChip("All", "all", state.category === "all", ITEMS.length));
+      for (const c of Object.keys(catCounts)) {
+        catRow.appendChild(makeChip(prettyCategory(c), c, state.category === c, catCounts[c]));
+      }
+      catRow.addEventListener("click", (e) => {
+        const chip = e.target.closest(".chip");
+        if (!chip) return;
+        state.category = chip.dataset.value;
+        syncChips(catRow, state.category);
+        applyFilters();
+      });
+
+      const tierCounts = countBy(ITEMS, "expected_tier");
+      const tierRow = document.getElementById("tier-chips");
+      tierRow.appendChild(makeChip("All", "all", state.tier === "all"));
+      for (const t of TIERS) {
+        tierRow.appendChild(makeChip(TIER_LABEL[t], t, state.tier === t, tierCounts[t] || 0));
+      }
+      tierRow.addEventListener("click", (e) => {
+        const chip = e.target.closest(".chip");
+        if (!chip) return;
+        state.tier = chip.dataset.value;
+        syncChips(tierRow, state.tier);
+        applyFilters();
+      });
+
+      const search = document.getElementById("search");
+      search.value = state.q;
+      search.addEventListener("input", () => {
+        state.q = search.value.trim();
+        applyFilters();
+      });
+    }
+
+    function syncChips(row, value) {
+      for (const chip of row.querySelectorAll(".chip")) {
+        chip.setAttribute("aria-pressed", chip.dataset.value === value ? "true" : "false");
+      }
+    }
+
+    function applyFilters() {
+      const q = state.q.toLowerCase();
+      const rows = ITEMS.filter((it) =>
+        (state.category === "all" || it.category === state.category) &&
+        (state.tier === "all" || it.expected_tier === state.tier) &&
+        (!q || it.prompt.toLowerCase().includes(q) || (it.rubric || "").toLowerCase().includes(q) || (it.reference || "").toLowerCase().includes(q) || it.id.toLowerCase().includes(q))
+      );
+      renderTable(rows);
+      document.getElementById("result-count").textContent = `Showing ${rows.length} of ${ITEMS.length}`;
+      writeUrlState();
+    }
+
+    function renderTable(rows) {
+      const tbody = document.getElementById("golden-tbody");
+      if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="empty">No prompts match these filters.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = rows.map((it) => `
+        <tr>
+          <td class="mono nowrap">${escapeHtml(it.id)}</td>
+          <td class="nowrap">${escapeHtml(prettyCategory(it.category))}</td>
+          <td class="nowrap"><span class="pill pill-${escapeHtml(it.expected_tier)}">${escapeHtml(TIER_LABEL[it.expected_tier] || it.expected_tier)}</span></td>
+          <td class="prompt">${escapeHtml(it.prompt)}</td>
+          <td class="rubric">${escapeHtml(it.rubric || "—")}</td>
+          <td class="rubric">${escapeHtml(it.reference || "—")}</td>
+        </tr>
+      `).join("");
+    }
+
+    async function init() {
+      readUrlState();
+      try {
+        const res = await fetch("golden.json", { cache: "no-cache" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        ITEMS = await res.json();
+      } catch (err) {
+        document.getElementById("golden-tbody").innerHTML =
+          `<tr><td colspan="6" class="empty">Could not load golden.json (${escapeHtml(err.message)}). The raw file is on <a href="https://github.com/jking-ai/thrifty-router/blob/main/eval/golden/golden_set.jsonl">GitHub</a>.</td></tr>`;
+        return;
+      }
+      renderStats();
+      renderChips();
+      applyFilters();
+    }
+
+    init();
+  </script>
+</body>
+</html>

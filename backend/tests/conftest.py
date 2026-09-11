@@ -103,10 +103,16 @@ def reset_state():
     limiter.reset()
     get_settings.cache_clear()
     get_router_config.cache_clear()
+    get_tier_client.cache_clear()
+    get_embedder.cache_clear()
+    get_cache_store.cache_clear()
     yield
     limiter.reset()
     get_settings.cache_clear()
     get_router_config.cache_clear()
+    get_tier_client.cache_clear()
+    get_embedder.cache_clear()
+    get_cache_store.cache_clear()
 
 
 @pytest.fixture

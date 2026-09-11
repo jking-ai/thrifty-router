@@ -23,8 +23,8 @@ Most teams either overpay by directing all traffic to the flagship tier or sacri
 | **Embedding-Based Semantic Routing** | Matches prompt vectors against pre-embedded domain route clusters using `gemini-embedding-001` (768-dim normalized cosine distance) |
 | **Semantic Vector Caching** | Native Firestore vector search (`find_nearest`) with pre-filters on system instruction and schema hashes, 24-hour TTL, achieving >95% cache hit rates on repeat queries |
 | **Micro-Dollar Ledger & Spend Guardrails** | Sub-cent per-attempt cost calculation (with thinking tokens billed at output rates), thread-safe in-process daily budget stops, and per-IP slowapi rate limits |
-| **Automated Eval Benchmark & LLM Judge** | 300-prompt curated golden set across 8 domains evaluated with a temperature-0 Gemini 3.1 Pro judge, emitting quality retention and cost ratios |
-| **Interactive Static Reporting** | Zero-build dark-mode interactive scatter plot with Chart.js hosted on Firebase Hosting |
+| **Automated Eval Benchmark & LLM Judge** | 300 hand-written, self-contained golden prompts across 8 domains evaluated with a temperature-0 Gemini 3.1 Pro judge, emitting quality retention and cost ratios |
+| **Interactive Static Reporting** | Zero-build dark-mode interactive scatter plot with Chart.js hosted on Firebase Hosting, plus a browsable [golden set explorer](https://thrifty-router.jking.ai/golden) with category, tier, and text filters |
 
 ---
 
@@ -37,7 +37,7 @@ Most teams either overpay by directing all traffic to the flagship tier or sacri
 | **Foundation Models** | Google Gen AI SDK (`google-genai`) | Gemini 3.1 Flash-Lite, Gemini 3 Flash, Gemini 3.1 Pro (Vertex AI backend) |
 | **Embeddings & Vector Cache** | `gemini-embedding-001` + Firestore | 768-dimensional L2-normalized vector similarity search |
 | **Rate Limiting & Budgets** | `slowapi` + In-process Ledger | Per-IP token bucket and UTC daily dollar hard-stop |
-| **Evaluation & Reporting** | Custom Python Harness + Firebase Hosting | 300-item golden benchmark with static Chart.js report |
+| **Evaluation & Reporting** | Custom Python Harness + Firebase Hosting | 300-item hand-written golden benchmark with static Chart.js report |
 
 ---
 
@@ -47,15 +47,19 @@ Benchmark results evaluated across 300 golden test items with temperature-0 Gemi
 
 | Strategy | Judge Score (1-5) | Quality Retention vs Pro | Cost / 1k Requests | Cost Ratio vs Pro | Latency (p50 / p95) | Tier Mix (L / S / P) |
 |---|---|---|---|---|---|---|
-| **fixed:lite** | 3.42 | 76% | $0.32 | 5% | 380 ms / 720 ms | 100% / 0% / 0% |
-| **fixed:standard** | 4.15 | 92% | $0.95 | 16% | 520 ms / 1,100 ms | 0% / 100% / 0% |
-| **fixed:pro** (Baseline) | 4.52 | 100% | $5.93 | 100% | 1,200 ms / 2,800 ms | 0% / 0% / 100% |
-| **semantic** | 4.22 | 93% | $1.73 | 29% | 610 ms / 1,450 ms | 42% / 35% / 23% |
-| **classifier** | 4.29 | 95% | $1.93 | 33% | 850 ms / 1,800 ms | 39% / 36% / 25% |
-| **cascade** *(Recommended)* | **4.34** | **96%** | **$1.37** | **23%** | 890 ms / 2,900 ms | **71% / 19% / 10%** |
+| **fixed:lite** | 4.82 | 98% | $0.50 | 3% | 2,551 ms / 5,455 ms | 100% / 0% / 0% |
+| **fixed:standard** | 4.90 | 100% | $2.78 | 16% | 6,943 ms / 18,030 ms | 0% / 100% / 0% |
+| **fixed:pro** (baseline) | 4.90 | 100% | $16.98 | 100% | 10,656 ms / 28,916 ms | 0% / 0% / 100% |
+| **semantic** | 4.88 | 100% | $6.61 | 39% | 9,863 ms / 24,060 ms | 29% / 47% / 24% |
+| **classifier** | 4.84 | 99% | $8.30 | 49% | 6,399 ms / 28,170 ms | 39% / 42% / 19% |
+| **cascade** | 4.82 | 98% | $0.53 | 3% | 2,664 ms / 5,144 ms | 100% / 0% / 0% |
 
-> [!TIP]
-> **Key Finding**: The **Cascade** strategy captures **96% of Pro-level quality** while slashing API spend by **77%** (cost ratio of 0.23 vs Pro). In addition, the Firestore semantic cache achieves a **98% hit rate** on repeated semantically similar queries at $0.00 model cost.
+Run of 2026-09-11 (`eval/results/latest/summary.json`). Latency was measured from a laptop against Vertex AI, not from Cloud Run.
+
+> [!NOTE]
+> **What the run showed.** Flash-Lite alone keeps 98% of Pro's judge score at 3% of the cost. Fixed standard and semantic routing match Pro's score at 16% and 39% of its cost, so the honest "same quality, cheaper" number is 61% to 84% savings, not 97%. The cascade never escalated: Gemini 3.1 Flash-Lite reports `CONFIDENCE: 95` or higher on every prompt, including formal proofs, so the 70% gate never fires and cascade is fixed lite with a longer prompt. The semantic cache served 120 of 120 repeated lite prompts on the second pass.
+>
+> The judge scores near the ceiling for every strategy, so this set does not separate the tiers as sharply as a harder one would. Ten long-form answers still hit the 8,192-token output budget.
 >
 > 📊 **Full Interactive Report:** [https://thrifty-router.jking.ai](https://thrifty-router.jking.ai)
 
@@ -123,4 +127,5 @@ curl -X POST http://localhost:8000/api/v1/complete \
 ## Links & Demo
 
 - **Live Benchmark Report:** [https://thrifty-router.jking.ai](https://thrifty-router.jking.ai)
+- **Golden Set Explorer:** [https://thrifty-router.jking.ai/golden](https://thrifty-router.jking.ai/golden)
 - **Portfolio Case Study:** [https://labs.jking.ai/projects/thrifty-router](https://labs.jking.ai/projects/thrifty-router)

@@ -79,7 +79,23 @@ What this does:
 bash scripts/deploy.sh report
 ```
 
-The Hosting site `thrifty-router` serves the benchmark report at `/` and rewrites `/api/**` to the `thrifty-router` Cloud Run service in `us-central1` (see `firebase.json`), so one branded host covers both the report and the API.
+The Hosting site `thrifty-router` serves the benchmark report at `/` and rewrites `/api/**` to the `thrifty-router` Cloud Run service in `us-central1` (see `firebase.json`), so one branded host covers both the report and the API. The same site serves the golden set explorer at `/golden` (`report/golden.html`), which reads `report/golden.json`.
+
+`report/index.html`, `report/data.json`, and `report/golden.json` are generated files. Regenerate them before deploying whenever the template, the eval results, or `eval/golden/golden_set.jsonl` change:
+
+```bash
+# From raw eval results
+python3 eval/report.py --results eval/results/latest
+
+# Or from the committed summary when only the template or golden set changed
+python3 eval/report.py --summary report/data.json
+```
+
+To preview the site locally with the same clean-URL behavior as production, run the Hosting emulator (port 5055, set in `firebase.json`):
+
+```bash
+firebase emulators:start --only hosting --project jking-ai-labs
+```
 
 **Custom domain.** `thrifty-router.jking.ai` is attached to the Hosting site as a Firebase custom domain. In Cloudflare DNS (zone `jking.ai`) it is a proxied CNAME to `thrifty-router.web.app` plus the `hosting-site=thrifty-router` TXT record Firebase uses for ownership. The zone runs SSL Full (strict), so a new Firebase custom domain has to start as a DNS-only record until Firebase reports the certificate active; flip it to proxied after that.
 

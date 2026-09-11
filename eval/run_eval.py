@@ -97,6 +97,7 @@ async def execute_eval_run(
     out_dir: str,
     golden_set_path: str = "eval/golden/golden_set.jsonl",
     cache_replay: bool = False,
+    concurrency: int = 1,
 ) -> None:
     # 1. Load golden items
     with open(golden_set_path, "r", encoding="utf-8") as f:
@@ -116,7 +117,7 @@ async def execute_eval_run(
 
     total_spend_usd = 0.0
     aborted_by_spend = False
-    concurrency_limit = 4
+    concurrency_limit = max(1, concurrency)
     semaphore = asyncio.Semaphore(concurrency_limit)
 
     timeout = httpx.Timeout(120.0, connect=10.0)
@@ -150,14 +151,16 @@ async def execute_eval_run(
                                 aborted_by_spend = True
                         return res
 
-                # Run items sequentially or in bounded chunks
-                for item in items:
+                # Run items in chunks of `concurrency_limit`; concurrency 1 is sequential.
+                for start in range(0, len(items), concurrency_limit):
                     if aborted_by_spend:
                         break
-                    res = await worker(item)
-                    if res:
-                        out_f.write(json.dumps(res) + "\n")
-                        out_f.flush()
+                    chunk = items[start:start + concurrency_limit]
+                    results = await asyncio.gather(*(worker(item) for item in chunk))
+                    for res in results:
+                        if res:
+                            out_f.write(json.dumps(res) + "\n")
+                            out_f.flush()
 
         # Optional cache replay experiment
         cache_hit_rate = None
@@ -200,6 +203,7 @@ def main():
     parser.add_argument("--max-spend-usd", type=float, default=3.0, help="Spend ceiling abort threshold")
     parser.add_argument("--out", default=None, help="Output directory path")
     parser.add_argument("--cache-replay", action="store_true", help="Run cache replay experiment")
+    parser.add_argument("--concurrency", type=int, default=4, help="Concurrent gateway requests (default 4)")
     args = parser.parse_args()
 
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -215,6 +219,7 @@ def main():
             max_spend_usd=args.max_spend_usd,
             out_dir=out_dir,
             cache_replay=args.cache_replay,
+            concurrency=args.concurrency,
         )
     )
 

@@ -36,18 +36,30 @@ def get_router_config() -> Dict[str, Any]:
     return load_router_config(path)
 
 
-def get_tier_client(settings: Settings = Depends(get_settings)) -> GeminiTierClient:
-    """Return Gemini tier client."""
-    return GeminiTierClient(settings=settings)
+# The Gemini and Firestore clients are built once per process. Constructing a
+# client resolves Application Default Credentials, and google-auth resolves the
+# project id by shelling out to `gcloud config get project` when the credentials
+# file does not carry one. Doing that per request forks a subprocess under an
+# active gRPC thread pool, which on macOS crashes the child (SIGTRAP in
+# libdispatch) and on every platform adds a slow subprocess to each request.
 
 
-def get_embedder(settings: Settings = Depends(get_settings)) -> Embedder:
-    """Return embedder instance."""
-    return VertexEmbedder(settings=settings)
+@lru_cache
+def get_tier_client() -> GeminiTierClient:
+    """Return the process-level Gemini tier client."""
+    return GeminiTierClient(settings=get_settings())
 
 
-def get_cache_store(settings: Settings = Depends(get_settings)) -> CacheStore:
-    """Return cache store instance."""
+@lru_cache
+def get_embedder() -> Embedder:
+    """Return the process-level embedder."""
+    return VertexEmbedder(settings=get_settings())
+
+
+@lru_cache
+def get_cache_store() -> CacheStore:
+    """Return the process-level Firestore cache store."""
+    settings = get_settings()
     return FirestoreCacheStore(
         project_id=settings.gcp_project_id,
         database=settings.firestore_database,

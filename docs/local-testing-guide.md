@@ -55,7 +55,8 @@ pytest -v tests/
 - [`test_validate_golden.py`](file:///Users/king/dev/jrk-ai-labs/thrifty-router/eval/tests/test_validate_golden.py): Tests golden dataset validation logic.
 - [`test_run_eval.py`](file:///Users/king/dev/jrk-ai-labs/thrifty-router/eval/tests/test_run_eval.py): Tests evaluation execution loop, spend ceiling stops, and cache replays.
 - [`test_judge.py`](file:///Users/king/dev/jrk-ai-labs/thrifty-router/eval/tests/test_judge.py): Tests LLM judge grading prompt parsing and scoring formulas.
-- [`test_report.py`](file:///Users/king/dev/jrk-ai-labs/thrifty-router/eval/tests/test_report.py): Tests JSON summary extraction and static HTML report rendering.
+- [`test_retry_failed_responses.py`](file:///Users/king/dev/jrk-ai-labs/thrifty-router/eval/tests/test_retry_failed_responses.py): Tests the in-place retry of failed gateway responses.
+- [`test_report.py`](file:///Users/king/dev/jrk-ai-labs/thrifty-router/eval/tests/test_report.py): Tests JSON summary extraction, static HTML report rendering, and the golden set export.
 
 ---
 
@@ -82,14 +83,68 @@ Tier distribution:
 
 ## Running an End-to-End Evaluation Sample
 
-To run a lightweight evaluation against a live endpoint with a small sample:
+To run a small slice against a gateway (all commands run from the repo root):
 
 ```bash
-cd eval
-python3 run_eval.py \
-  --golden golden/golden_set.jsonl \
-  --strategies lite_only semantic cascade \
-  --sample-size 10 \
-  --spend-ceiling 0.50 \
-  --output-dir results/sample_run
+python3 eval/run_eval.py \
+  --base-url http://localhost:8000 --api-key local-eval-key \
+  --strategies fixed:lite,semantic,cascade \
+  --limit 10 --max-spend-usd 0.50 \
+  --out eval/results/sample_run
+
+python3 eval/judge.py \
+  --base-url http://localhost:8000 --api-key local-eval-key \
+  --results eval/results/sample_run --max-spend-usd 0.50
+
+python3 eval/report.py --results eval/results/sample_run --allow-partial
 ```
+
+## Running the Full Benchmark
+
+A full run is 1,800 gateway calls plus 1,800 judge calls, which the production gateway's per-IP limits (`10/minute;200/day`) and $2 daily budget will not allow. Run it against a local backend with the limits raised:
+
+```bash
+cd backend
+GCP_PROJECT_ID=jking-ai-labs GCP_REGION=us-central1 GEMINI_LOCATION=global \
+API_KEY=local-eval-key DAILY_BUDGET_USD=30 COMPLETE_LIMITS="1000/minute;100000/day" \
+CACHE_ENABLED=true \
+../.venv/bin/uvicorn app.main:app --port 8000
+```
+
+Leave `MAX_OUTPUT_TOKENS` at its default of 8192. Gemini 3.x counts thinking tokens against that budget, and pro-tier thinking alone reached about 2,000 tokens on the golden set, so a smaller cap cuts answers off mid-sentence and the judge scores the truncation rather than the model. `CACHE_ENABLED=true` is only needed for the `--cache-replay` experiment; the main replay and the judge send `use_cache: false` on every request.
+
+Then, from the repo root:
+
+```bash
+RUN_ID=$(date -u +%Y-%m-%dT%H-%M-%SZ)
+python3 eval/run_eval.py --base-url http://localhost:8000 --api-key local-eval-key \
+  --max-spend-usd 12 --concurrency 4 --cache-replay --out eval/results/$RUN_ID
+# Replay only the pairs that hit a 429 or timeout (about 1% of calls on the pro model).
+# Add --rerun-capped-at N to also replay answers whose thinking + output reached a token cap;
+# their judgments are dropped so the judge rescores them on --resume.
+python3 eval/scripts/retry_failed_responses.py --base-url http://localhost:8000 --api-key local-eval-key \
+  --results eval/results/$RUN_ID
+python3 eval/judge.py --base-url http://localhost:8000 --api-key local-eval-key \
+  --results eval/results/$RUN_ID --max-spend-usd 8 --concurrency 4
+python3 eval/report.py --results eval/results/$RUN_ID
+cp eval/results/$RUN_ID/summary.json eval/results/latest/summary.json
+```
+
+Expect roughly $9 for generation and $7 for judging in Vertex AI spend, and about two and a half hours of wall-clock time at concurrency 4. The judge retries 429s and timeouts three times on its own. If the judge is interrupted, rerun it with `--resume` to keep every scored line and score only the rest.
+
+---
+
+## Previewing the Benchmark Report Locally
+
+The report site is static, but the golden set explorer fetches `golden.json` and links use Firebase clean URLs (`/golden`), so preview it with the Hosting emulator rather than opening the files directly:
+
+```bash
+# Regenerate index.html, data.json, and golden.json from the committed summary
+python3 eval/report.py --summary report/data.json
+
+# Serve report/ on http://localhost:5055 with production rewrites and clean URLs
+firebase emulators:start --only hosting --project jking-ai-labs
+```
+
+Open `http://localhost:5055/` for the benchmark report and `http://localhost:5055/golden` for the explorer. The explorer accepts `?category=`, `?tier=`, and `?q=` query parameters, which the preview card on the home page uses for its deep links.
+

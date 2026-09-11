@@ -52,11 +52,13 @@ This document tracks the phased implementation milestones for the Thrifty Router
 - [x] Added 24-hour TTL expiration handling.
 
 ### Phase 5: Evaluation Harness
-- [x] Authored seed tasks and synthesized 300 curated golden prompts across 8 task categories.
+- [x] Authored 24 seed archetypes and a hand-written bank of 300 self-contained golden prompts across 8 task categories, with reference answers where a single correct answer exists.
 - [x] Verified category distribution (40% lite, 35% standard, 25% pro) via `validate_golden.py`.
 - [x] Implemented `run_eval.py` orchestrating multi-strategy execution with spend ceilings.
-- [x] Built `eval/judge.py` using Gemini 2.5 Pro as LLM judge grading on quality, correctness, and completeness (0.0 to 1.0).
+- [x] Built `eval/judge.py` using Gemini 3.1 Pro as LLM judge grading each answer against its rubric on a 1 to 5 scale.
 - [x] Created automated HTML/JSON report generator producing static benchmark dashboards (`report/index.html`).
+- [x] Ran the full benchmark on 2026-09-11 against Vertex AI (1,800 answers, Pro judge) and replaced every published number with the run's `summary.json`.
+- [x] Published the golden set as a browsable explorer (`report/golden.html`, served at `/golden`) with a category and tier preview on the report home page.
 
 ### Phase 6: Project Registration & Showcase
 - [x] Authored complete documentation suite (`AGENTS.md`, `CLAUDE.md`, `docs/`).

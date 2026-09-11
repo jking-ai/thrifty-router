@@ -112,8 +112,9 @@ Every generation response includes informative metadata headers:
   "strategy": "cascade",
   "tier": null,
   "temperature": 0.2,
-  "max_tokens": 1024,
-  "schema": null
+  "max_output_tokens": null,
+  "json_schema": null,
+  "use_cache": true
 }
 ```
 
@@ -124,8 +125,9 @@ Every generation response includes informative metadata headers:
 | `strategy` | Enum | No | `cascade` | `fixed`, `semantic`, `classifier`, `cascade` |
 | `tier` | Enum | No | `null` | Required only if `strategy == fixed`; optional override |
 | `temperature` | Float | No | `0.7` | Temperature (0.0 to 2.0) |
-| `max_tokens` | Integer | No | `null` | Max output tokens |
-| `schema` | Object | No | `null` | Optional JSON Schema definition for strict output validation |
+| `max_output_tokens` | Integer | No | `null` | Max output tokens; falls back to the gateway's `MAX_OUTPUT_TOKENS` (default 8192, which includes Gemini 3.x thinking tokens) |
+| `json_schema` | Object | No | `null` | Optional JSON Schema definition for strict output validation |
+| `use_cache` | Boolean | No | `true` | Whether to read from and write to the semantic cache |
 
 #### Response `200 OK`
 ```json
