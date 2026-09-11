@@ -72,11 +72,16 @@ What this does:
 3. Injects production environment variables (`GCP_PROJECT_ID`, `DAILY_BUDGET_USD`, `CACHE_ENABLED`, etc.).
 4. Configures minimum instances (0 for scale-to-zero) and concurrency.
 
-### 2. Deploy Firebase Hosting Proxy
+### 2. Deploy Firebase Hosting (report + API proxy)
 ```bash
-# Deploys hosting rewrites to route thrifty-router.jking.ai -> Cloud Run
-bash scripts/deploy.sh frontend
+# Deploys the static benchmark report and the /api/** rewrite that
+# routes https://thrifty-router.jking.ai/api/... -> Cloud Run
+bash scripts/deploy.sh report
 ```
+
+The Hosting site `thrifty-router` serves the benchmark report at `/` and rewrites `/api/**` to the `thrifty-router` Cloud Run service in `us-central1` (see `firebase.json`), so one branded host covers both the report and the API.
+
+**Custom domain.** `thrifty-router.jking.ai` is attached to the Hosting site as a Firebase custom domain. In Cloudflare DNS (zone `jking.ai`) it is a proxied CNAME to `thrifty-router.web.app` plus the `hosting-site=thrifty-router` TXT record Firebase uses for ownership. The zone runs SSL Full (strict), so a new Firebase custom domain has to start as a DNS-only record until Firebase reports the certificate active; flip it to proxied after that.
 
 ### 3. Deploy All
 ```bash
@@ -90,7 +95,7 @@ bash scripts/deploy.sh all
 Verify that the live endpoint is functioning correctly using the automated smoke test script:
 
 ```bash
-bash backend/scripts/smoke.sh https://thrifty-router-xxxx-uc.a.run.app <your-api-key>
+bash backend/scripts/smoke.sh https://thrifty-router.jking.ai <your-api-key>
 ```
 
 The smoke script tests:

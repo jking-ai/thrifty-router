@@ -8,7 +8,16 @@
         "**/.*",
         "**/node_modules/**"
       ],
-      "cleanUrls": true
+      "cleanUrls": true,
+      "rewrites": [
+        {
+          "source": "/api/**",
+          "run": {
+            "serviceId": "thrifty-router",
+            "region": "us-central1"
+          }
+        }
+      ]
     }
   ]
 }
