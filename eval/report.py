@@ -221,6 +221,39 @@ def compute_metrics(
     return summary
 
 
+GOLDEN_EXPORT_FIELDS = ("id", "category", "expected_tier", "prompt", "rubric", "reference", "reviewed", "source")
+
+
+def export_golden_set(golden_path: str, out_path: str) -> int:
+    """Copy the golden set into the static report as a JSON array.
+
+    Only the fields the browsable explorer needs are kept, so the published
+    file stays small and its shape is stable even if the JSONL grows new
+    internal columns. Returns the number of items written.
+    """
+    items = []
+    with open(golden_path, "r", encoding="utf-8") as f:
+        for line_no, line in enumerate(f, start=1):
+            line = line.strip()
+            if not line:
+                continue
+            row = json.loads(line)
+            missing = [k for k in ("id", "category", "expected_tier", "prompt") if not row.get(k)]
+            if missing:
+                raise ValueError(f"{golden_path}:{line_no} missing required field(s): {', '.join(missing)}")
+            items.append({k: row.get(k) for k in GOLDEN_EXPORT_FIELDS})
+
+    if not items:
+        raise ValueError(f"No golden items found in {golden_path}")
+
+    os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+    with open(out_path, "w", encoding="utf-8") as out:
+        json.dump(items, out, indent=1, ensure_ascii=False)
+        out.write("\n")
+    print(f"✓ Exported {len(items)} golden items: {out_path}")
+    return len(items)
+
+
 def render_html_report(summary: Dict[str, Any], template_path: str, output_path: str, data_path: str) -> None:
     """Render interactive HTML report by injecting data.json into template."""
     with open(template_path, "r", encoding="utf-8") as f:
@@ -240,24 +273,40 @@ def render_html_report(summary: Dict[str, Any], template_path: str, output_path:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Aggregate eval results and generate HTML report.")
-    parser.add_argument("--results", required=True, help="Results directory")
+    parser = argparse.ArgumentParser(
+        description="Aggregate eval results, generate the HTML report, and export the golden set for the explorer page."
+    )
+    src = parser.add_mutually_exclusive_group(required=True)
+    src.add_argument("--results", help="Results directory containing responses.jsonl and judgments.jsonl")
+    src.add_argument(
+        "--summary",
+        help="Re-render the report from an existing summary (e.g. report/data.json) without raw results",
+    )
     parser.add_argument("--allow-partial", action="store_true", help="Allow fewer than 50 items per strategy")
     parser.add_argument("--template", default="report/template.html", help="HTML template path")
     parser.add_argument("--out-html", default="report/index.html", help="HTML output path")
     parser.add_argument("--out-data", default="report/data.json", help="Data JSON output path")
+    parser.add_argument("--golden", default="eval/golden/golden_set.jsonl", help="Golden set JSONL to publish")
+    parser.add_argument("--out-golden", default="report/golden.json", help="Golden set JSON output path")
+    parser.add_argument("--skip-golden", action="store_true", help="Do not export the golden set")
     args = parser.parse_args()
 
-    summary = compute_metrics(
-        results_dir=args.results,
-        allow_partial=args.allow_partial,
-    )
+    if args.summary:
+        with open(args.summary, "r", encoding="utf-8") as f:
+            summary = json.load(f)
+    else:
+        summary = compute_metrics(
+            results_dir=args.results,
+            allow_partial=args.allow_partial,
+        )
     render_html_report(
         summary=summary,
         template_path=args.template,
         output_path=args.out_html,
         data_path=args.out_data,
     )
+    if not args.skip_golden:
+        export_golden_set(golden_path=args.golden, out_path=args.out_golden)
 
 
 if __name__ == "__main__":

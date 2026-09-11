@@ -131,3 +131,64 @@ def test_partial_flag_stamps_summary():
         assert summary["partial"] is True
     finally:
         shutil.rmtree(temp_dir)
+
+
+def test_export_golden_set_writes_explorer_fields():
+    """Golden export keeps only the explorer fields and preserves row count and order."""
+    from eval.report import export_golden_set, GOLDEN_EXPORT_FIELDS
+
+    temp_dir = tempfile.mkdtemp()
+    try:
+        golden_path = os.path.join(temp_dir, "golden.jsonl")
+        out_path = os.path.join(temp_dir, "report", "golden.json")
+        with open(golden_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "id": "g_0001", "category": "doc_qa", "expected_tier": "lite", "prompt": "What is 2+2?",
+                "rubric": "Must answer 4.", "reviewed": True, "source": "seed:seed_doc_qa_lite_1",
+                "system": None, "json_schema": None, "reference": None, "internal_note": "drop me",
+            }) + "\n")
+            f.write("\n")  # blank lines are tolerated
+            f.write(json.dumps({
+                "id": "g_0002", "category": "creative", "expected_tier": "pro", "prompt": "Write a sonnet.",
+                "rubric": "Fourteen lines.", "reviewed": True, "source": "seed:seed_creative_pro_1",
+            }) + "\n")
+
+        count = export_golden_set(golden_path=golden_path, out_path=out_path)
+        assert count == 2
+
+        with open(out_path, "r", encoding="utf-8") as f:
+            exported = json.load(f)
+        assert [row["id"] for row in exported] == ["g_0001", "g_0002"]
+        assert set(exported[0].keys()) == set(GOLDEN_EXPORT_FIELDS)
+        assert "internal_note" not in exported[0]
+        assert exported[1]["expected_tier"] == "pro"
+    finally:
+        shutil.rmtree(temp_dir)
+
+
+def test_export_golden_set_rejects_rows_missing_required_fields():
+    """A row without a prompt or tier must fail loudly instead of publishing a broken explorer."""
+    from eval.report import export_golden_set
+
+    temp_dir = tempfile.mkdtemp()
+    try:
+        golden_path = os.path.join(temp_dir, "golden.jsonl")
+        with open(golden_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({"id": "g_0001", "category": "doc_qa", "expected_tier": "lite"}) + "\n")
+        with pytest.raises(ValueError, match="missing required field"):
+            export_golden_set(golden_path=golden_path, out_path=os.path.join(temp_dir, "golden.json"))
+    finally:
+        shutil.rmtree(temp_dir)
+
+
+def test_export_golden_set_rejects_empty_file():
+    from eval.report import export_golden_set
+
+    temp_dir = tempfile.mkdtemp()
+    try:
+        golden_path = os.path.join(temp_dir, "golden.jsonl")
+        open(golden_path, "w").close()
+        with pytest.raises(ValueError, match="No golden items"):
+            export_golden_set(golden_path=golden_path, out_path=os.path.join(temp_dir, "golden.json"))
+    finally:
+        shutil.rmtree(temp_dir)

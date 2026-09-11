@@ -6,221 +6,142 @@
   <title>Thrifty Router — Cost vs Quality Evaluation Benchmark</title>
   <meta name="description" content="Evaluation benchmark proving Gemini cost-versus-quality trade-offs across fixed tiers, semantic routing, fast classifier, and model cascade.">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="report.css">
   <style>
-    :root {
-      --bg-dark: #090d16;
-      --bg-card: rgba(18, 24, 38, 0.75);
-      --bg-card-hover: rgba(28, 36, 56, 0.85);
-      --border-color: rgba(255, 255, 255, 0.08);
-      --border-bright: rgba(20, 184, 166, 0.3);
-      --text-primary: #f3f4f6;
-      --text-secondary: #9ca3af;
-      --accent-teal: #14b8a6;
-      --accent-green: #10b981;
-      --accent-blue: #3b82f6;
-      --accent-purple: #8b5cf6;
-      --accent-orange: #f59e0b;
-      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    body {
-      background-color: var(--bg-dark);
-      background-image: radial-gradient(circle at 50% 0%, rgba(20, 184, 166, 0.08) 0%, transparent 60%);
-      color: var(--text-primary);
-      font-family: var(--font-family);
-      line-height: 1.5;
-      padding: 2.5rem 1.5rem;
-      min-height: 100vh;
-    }
-
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-
-    header {
-      margin-bottom: 2.5rem;
-      text-align: center;
-    }
-
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.25rem 0.75rem;
-      border-radius: 9999px;
-      background: rgba(20, 184, 166, 0.12);
-      border: 1px solid rgba(20, 184, 166, 0.25);
-      color: var(--accent-teal);
-      font-size: 0.8125rem;
-      font-weight: 600;
-      margin-bottom: 1rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    h1 {
-      font-size: 2.5rem;
-      font-weight: 800;
-      letter-spacing: -0.025em;
-      margin-bottom: 0.75rem;
-      background: linear-gradient(135deg, #ffffff 40%, #9ca3af 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    p.subtitle {
-      color: var(--text-secondary);
-      font-size: 1.125rem;
-      max-width: 720px;
-      margin: 0 auto;
-    }
-
-    .stats-grid {
+    .findings-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 1.25rem;
-      margin-bottom: 2.5rem;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
     }
 
-    .stat-card {
-      background: var(--bg-card);
-      backdrop-filter: blur(12px);
+    .finding {
       border: 1px solid var(--border-color);
-      border-radius: 1rem;
-      padding: 1.25rem 1.5rem;
-      transition: border-color 0.2s;
-    }
-
-    .stat-card:hover {
-      border-color: var(--border-bright);
-    }
-
-    .stat-label {
-      color: var(--text-secondary);
-      font-size: 0.8125rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 0.35rem;
-    }
-
-    .stat-value {
-      font-size: 1.875rem;
-      font-weight: 700;
-      color: #ffffff;
-    }
-
-    .stat-sub {
-      color: var(--accent-teal);
-      font-size: 0.875rem;
-      font-weight: 500;
-      margin-top: 0.25rem;
-    }
-
-    .chart-container {
-      background: var(--bg-card);
-      backdrop-filter: blur(12px);
-      border: 1px solid var(--border-color);
-      border-radius: 1rem;
-      padding: 2rem;
-      margin-bottom: 2.5rem;
-      position: relative;
-    }
-
-    .section-title {
-      font-size: 1.375rem;
-      font-weight: 700;
-      margin-bottom: 0.5rem;
-      color: #ffffff;
-    }
-
-    .section-desc {
-      color: var(--text-secondary);
-      font-size: 0.9375rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .table-wrapper {
-      background: var(--bg-card);
-      backdrop-filter: blur(12px);
-      border: 1px solid var(--border-color);
-      border-radius: 1rem;
-      overflow-x: auto;
-      margin-bottom: 2.5rem;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      text-align: left;
-      font-size: 0.875rem;
-    }
-
-    th {
-      background: rgba(255, 255, 255, 0.03);
-      color: var(--text-secondary);
-      font-weight: 600;
-      padding: 1rem 1.25rem;
-      border-bottom: 1px solid var(--border-color);
-      white-space: nowrap;
-    }
-
-    td {
-      padding: 1rem 1.25rem;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-      white-space: nowrap;
-    }
-
-    tr:last-child td {
-      border-bottom: none;
-    }
-
-    tr:hover td {
+      border-radius: 0.75rem;
+      padding: 1rem 1.1rem;
       background: rgba(255, 255, 255, 0.02);
     }
 
-    .tag-strategy {
+    .finding h3 {
+      font-size: 0.9375rem;
       font-weight: 600;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.35rem;
+      color: #ffffff;
+      margin-bottom: 0.35rem;
     }
 
-    .pill {
-      display: inline-block;
-      padding: 0.15rem 0.5rem;
-      border-radius: 4px;
+    .finding p {
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+    }
+
+    .golden-preview-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+      gap: 2rem;
+    }
+
+    @media (max-width: 820px) {
+      .golden-preview-grid { grid-template-columns: 1fr; }
+    }
+
+    .golden-subhead {
+      color: var(--text-secondary);
       font-size: 0.75rem;
-      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.75rem;
     }
 
-    .pill-green { background: rgba(16, 185, 129, 0.15); color: #34d399; }
-    .pill-blue { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
-    .pill-teal { background: rgba(20, 184, 166, 0.15); color: #2dd4bf; }
+    .cat-row {
+      display: grid;
+      grid-template-columns: 9rem minmax(0, 1fr) 2.5rem;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.35rem 0;
+      text-decoration: none;
+      color: var(--text-primary);
+      font-size: 0.875rem;
+      border-radius: 0.4rem;
+    }
 
-    footer {
-      text-align: center;
+    .cat-row:hover { background: rgba(255, 255, 255, 0.03); text-decoration: none; }
+
+    .cat-bar {
+      display: flex;
+      height: 0.6rem;
+      border-radius: 9999px;
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .cat-bar span { display: block; height: 100%; }
+    .cat-bar .lite { background: var(--tier-lite); }
+    .cat-bar .standard { background: var(--tier-standard); }
+    .cat-bar .pro { background: var(--tier-pro); }
+
+    .cat-count { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-secondary); text-align: right; }
+
+    .tier-legend {
+      display: flex;
+      gap: 1rem;
+      margin-top: 0.75rem;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+
+    .tier-legend i {
+      display: inline-block;
+      width: 0.6rem;
+      height: 0.6rem;
+      border-radius: 2px;
+      margin-right: 0.35rem;
+      vertical-align: -1px;
+    }
+
+    .sample {
+      border: 1px solid var(--border-color);
+      border-radius: 0.75rem;
+      padding: 0.9rem 1rem;
+      margin-bottom: 0.75rem;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .sample-meta {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.4rem;
+    }
+
+    .sample-prompt { font-size: 0.9rem; color: var(--text-primary); }
+    .sample-rubric { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.35rem; }
+
+    .golden-actions {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .link-quiet {
+      background: none;
+      border: none;
       color: var(--text-secondary);
       font-size: 0.8125rem;
-      margin-top: 3rem;
-      padding-top: 2rem;
-      border-top: 1px solid var(--border-color);
+      cursor: pointer;
+      font-family: inherit;
     }
 
-    footer a {
-      color: var(--accent-teal);
-      text-decoration: none;
-    }
+    .link-quiet:hover { color: var(--text-primary); }
   </style>
 </head>
 <body>
   <div class="container">
+    <nav class="site-nav" aria-label="Report pages">
+      <a href="./" aria-current="page">Benchmark Report</a>
+      <a href="golden">Golden Set</a>
+      <a href="https://github.com/jking-ai/thrifty-router" target="_blank" rel="noopener noreferrer">GitHub</a>
+    </nav>
+
     <header>
       <div class="badge">Live Evaluation Benchmark</div>
       <h1>Thrifty Router Eval Report</h1>
@@ -231,7 +152,30 @@
       <!-- Injected via JavaScript -->
     </div>
 
-    <div class="chart-container">
+    <div class="card" id="findings">
+      <h2 class="section-title">What the run showed</h2>
+      <p class="section-desc">Run of 2026-09-11: 300 prompts through six strategies, 1,800 answers scored by Gemini 3.1 Pro at temperature 0.</p>
+      <div class="findings-grid">
+        <div class="finding">
+          <h3>Flash-Lite is almost enough</h3>
+          <p>Fixed lite scores 4.82 against Pro's 4.90, a 2% gap, at 3% of Pro's cost and a quarter of its latency. On the 75 prompts labeled pro, lite still scores 4.64.</p>
+        </div>
+        <div class="finding">
+          <h3>Parity costs 61% less, not 97%</h3>
+          <p>Semantic routing and fixed standard both match Pro's score. Semantic does it at 39% of Pro's spend and standard at 16%, so the honest "same quality, cheaper" number is standard or semantic, not lite.</p>
+        </div>
+        <div class="finding">
+          <h3>The cascade never escalates</h3>
+          <p>Gemini 3.1 Flash-Lite reports CONFIDENCE 95 to 100 on every prompt, including the proofs and 700-word stories, so a 70% threshold never fires. Cascade is fixed lite plus a longer prompt. A self-rated confidence gate is not a verifier.</p>
+        </div>
+        <div class="finding">
+          <h3>Output budgets are part of the benchmark</h3>
+          <p>With a 2,048-token budget, 67 Pro answers were cut off mid-sentence because thinking tokens count against it, and the judge scored the truncation. The gateway default is now 8,192. Ten long-form answers still hit that.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
       <h2 class="section-title">Cost per 1k Requests vs Quality Score</h2>
       <p class="section-desc">Log-scale cost (X-axis) vs LLM Judge Quality Score (Y-axis, 1-5 scale). The ideal strategy appears in the top-left quadrant (high quality, lowest cost).</p>
       <div style="height: 420px;">
@@ -283,8 +227,32 @@
       </table>
     </div>
 
+    <div class="card" id="golden-preview">
+      <h2 class="section-title">The Golden Set</h2>
+      <p class="section-desc">The judge scores every strategy above against the same 300 prompts: eight task categories, each labeled with the cheapest Gemini tier a reviewer judged sufficient, plus the rubric the judge grades against. Every prompt is hand-written with its source material inline, and the set is validated to a 40 / 35 / 25 lite / standard / pro split. <a href="golden">Browse every prompt →</a></p>
+      <div class="golden-preview-grid">
+        <div>
+          <div class="golden-subhead">Prompts per category, by expected tier</div>
+          <div id="golden-categories"></div>
+          <div class="tier-legend">
+            <span><i style="background: var(--tier-lite)"></i>Lite</span>
+            <span><i style="background: var(--tier-standard)"></i>Standard</span>
+            <span><i style="background: var(--tier-pro)"></i>Pro</span>
+          </div>
+        </div>
+        <div>
+          <div class="golden-subhead">Sample prompts</div>
+          <div id="golden-samples"></div>
+          <div class="golden-actions">
+            <a class="btn" href="golden">Browse all prompts</a>
+            <button type="button" class="link-quiet" id="golden-shuffle">Show three more</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <footer>
-      <p>Self-preference note: Gemini 3.1 Pro scores answers using a temperature-0 rubric. All costs reflect Vertex AI pricing as of September 2026.</p>
+      <p>Self-preference note: Gemini 3.1 Pro scores every answer, including its own, with a temperature-0 rubric on a 1 to 5 scale, and it scores near the ceiling for every strategy. Costs reflect Vertex AI list pricing as of September 2026; the judge pass cost <span id="judge-cost">$—</span>. Latency was measured from a laptop, not from Cloud Run.</p>
       <p style="margin-top: 0.5rem;"><a href="https://labs.jking.ai/projects/thrifty-router">← Back to Labs Portfolio</a> · <a href="https://github.com/jking-ai/thrifty-router">GitHub Source</a></p>
     </footer>
   </div>
@@ -353,12 +321,16 @@
         <div class="stat-value">${(DATA.cache_hit_rate_second_pass ? (DATA.cache_hit_rate_second_pass * 100).toFixed(0) : 98)}%</div>
         <div class="stat-sub">Firestore Semantic Cache</div>
       </div>
-      <div class="stat-card">
+      <a class="stat-card" href="golden">
         <div class="stat-label">Golden Set Items</div>
         <div class="stat-value">${DATA.items || 300}</div>
-        <div class="stat-sub">Reviewed Prompts</div>
-      </div>
+        <div class="stat-sub">Browse the prompts →</div>
+      </a>
     `;
+
+    if (typeof DATA.judge_cost_usd === "number") {
+      document.getElementById("judge-cost").textContent = `$${DATA.judge_cost_usd.toFixed(2)}`;
+    }
 
     // Render Table
     const tbody = document.getElementById("metrics-tbody");
@@ -446,7 +418,7 @@
             }
           },
           y: {
-            min: 3.0,
+            min: 4.0,
             max: 5.0,
             title: {
               display: true,
@@ -455,7 +427,7 @@
               font: { size: 13, weight: "600" }
             },
             grid: { color: "rgba(255, 255, 255, 0.06)" },
-            ticks: { color: "#9ca3af", stepSize: 0.5 }
+            ticks: { color: "#9ca3af", stepSize: 0.25 }
           }
         },
         plugins: {
@@ -470,6 +442,59 @@
         }
       }
     });
+
+    // Golden set preview (data shipped as golden.json next to this page)
+    (async function renderGoldenPreview() {
+      const TIERS = ["lite", "standard", "pro"];
+      const TIER_LABEL = { lite: "Lite", standard: "Standard", pro: "Pro" };
+      const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+      const pretty = (c) => c.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase()).replace(/\bQa\b/, "QA");
+
+      let items;
+      try {
+        const res = await fetch("golden.json", { cache: "no-cache" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        items = await res.json();
+      } catch (err) {
+        document.querySelector(".golden-preview-grid").innerHTML =
+          `<p class="section-desc">Could not load golden.json (${esc(err.message)}). <a href="golden">Open the explorer</a> or view the <a href="https://github.com/jking-ai/thrifty-router/blob/main/eval/golden/golden_set.jsonl">raw file on GitHub</a>.</p>`;
+        return;
+      }
+
+      const byCat = {};
+      for (const it of items) {
+        byCat[it.category] ??= { lite: 0, standard: 0, pro: 0, total: 0 };
+        byCat[it.category][it.expected_tier] += 1;
+        byCat[it.category].total += 1;
+      }
+      document.getElementById("golden-categories").innerHTML = Object.entries(byCat).map(([cat, c]) => `
+        <a class="cat-row" href="golden?category=${encodeURIComponent(cat)}" title="${TIERS.map((t) => `${TIER_LABEL[t]} ${c[t]}`).join(" · ")}">
+          <span>${esc(pretty(cat))}</span>
+          <span class="cat-bar">${TIERS.map((t) => `<span class="${t}" style="width:${(c[t] / c.total) * 100}%"></span>`).join("")}</span>
+          <span class="cat-count">${c.total}</span>
+        </a>
+      `).join("");
+
+      const samplesEl = document.getElementById("golden-samples");
+      const pickSamples = () => TIERS.map((t) => {
+        const pool = items.filter((it) => it.expected_tier === t);
+        return pool[Math.floor(Math.random() * pool.length)];
+      }).filter(Boolean);
+      const renderSamples = () => {
+        samplesEl.innerHTML = pickSamples().map((it) => `
+          <div class="sample">
+            <div class="sample-meta">
+              <span class="pill pill-${esc(it.expected_tier)}">${esc(TIER_LABEL[it.expected_tier])}</span>
+              <span class="mono">${esc(it.id)} · ${esc(pretty(it.category))}</span>
+            </div>
+            <div class="sample-prompt">${esc(it.prompt)}</div>
+            <div class="sample-rubric">Rubric: ${esc(it.rubric || "—")}</div>
+          </div>
+        `).join("");
+      };
+      renderSamples();
+      document.getElementById("golden-shuffle").addEventListener("click", renderSamples);
+    })();
   </script>
 </body>
 </html>
