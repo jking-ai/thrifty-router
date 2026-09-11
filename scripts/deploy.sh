@@ -78,7 +78,8 @@ deploy_report() {
     firebase deploy --only hosting:router-report --project "$GCP_PROJECT"
 
     echo ""
-    echo "✓ Report deployed to https://thrifty-router.web.app"
+    echo "✓ Report deployed to https://thrifty-router.jking.ai (Firebase site: https://thrifty-router.web.app)"
+    echo "  /api/** on that host rewrites to the thrifty-router Cloud Run service"
     echo ""
 }
 
@@ -86,7 +87,7 @@ case "$TARGET" in
     backend)
         deploy_backend
         ;;
-    report)
+    report|frontend)
         deploy_report
         ;;
     all)

@@ -57,7 +57,7 @@ Benchmark results evaluated across 300 golden test items with temperature-0 Gemi
 > [!TIP]
 > **Key Finding**: The **Cascade** strategy captures **96% of Pro-level quality** while slashing API spend by **77%** (cost ratio of 0.23 vs Pro). In addition, the Firestore semantic cache achieves a **98% hit rate** on repeated semantically similar queries at $0.00 model cost.
 >
-> 📊 **Full Interactive Report:** [https://thrifty-router.web.app](https://thrifty-router.web.app)
+> 📊 **Full Interactive Report:** [https://thrifty-router.jking.ai](https://thrifty-router.jking.ai)
 
 ---
 
@@ -122,5 +122,5 @@ curl -X POST http://localhost:8000/api/v1/complete \
 
 ## Links & Demo
 
-- **Live Benchmark Report:** [https://thrifty-router.web.app](https://thrifty-router.web.app)
+- **Live Benchmark Report:** [https://thrifty-router.jking.ai](https://thrifty-router.jking.ai)
 - **Portfolio Case Study:** [https://labs.jking.ai/projects/thrifty-router](https://labs.jking.ai/projects/thrifty-router)
