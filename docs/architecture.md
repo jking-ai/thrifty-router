@@ -65,7 +65,7 @@ Model tiers are defined in `router.yaml` and loaded during application startup. 
 The cost formula accounts for input tokens, generated output tokens, and chain-of-thought/thinking tokens:
 $$\text{Cost} = \left(\frac{\text{prompt\_tokens}}{10^6} \times P_{\text{in}}\right) + \left(\frac{\text{candidates\_tokens} + \text{thinking\_tokens}}{10^6} \times P_{\text{out}}\right)$$
 
-All calculations are rounded to 6 decimal places ($0.000001). If the cumulative daily spend meets or exceeds `DAILY_BUDGET_USD`, the gateway immediately rejects incoming generation requests with `402 Payment Required` and `BUDGET_EXCEEDED`.
+All calculations are rounded to 6 decimal places ($0.000001). If the cumulative daily spend meets or exceeds `DAILY_BUDGET_USD`, the gateway immediately rejects incoming generation requests with `429` and `DAILY_BUDGET_EXCEEDED`.
 
 ## Routing Strategies
 
@@ -79,14 +79,14 @@ Pre-computes 768-dimensional L2-normalized embeddings for curated prompt archety
 3. Assign the tier of the closest matching centroid above a confidence margin.
 
 ### 3. Classifier (`classifier`)
-Sends the user prompt to a fast zero-temperature classifier prompt run against the `lite` tier (`gemini-3.1-flash-lite`, set by `classifier.tier` in `router.yaml`). The classifier returns a strict JSON object:
+Sends the user prompt to a fast zero-temperature classifier prompt run against the tier named by `classifier.tier` in `router.yaml` (currently `lite`). The classifier returns a strict JSON object:
 ```json
 {
   "tier": "lite|standard|pro",
   "reason": "short explanation"
 }
 ```
-If the classifier response cannot be parsed or times out, the router fails safe to `standard`.
+If the classifier call fails, or returns unparseable JSON or an unknown tier, the router falls back to `default_tier` from `router.yaml` (currently `lite`).
 
 ### 4. Cascade (`cascade`)
 Opportunistic escalation based on iterative generation and verification:

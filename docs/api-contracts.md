@@ -13,16 +13,7 @@ All requests must adhere to HTTP/1.1 or HTTP/2 over TLS. Authenticated endpoints
 | `Content-Type` | String | Required for POST | Must be `application/json` |
 
 ### Response Headers
-Every generation response includes informative metadata headers:
-| Header | Example | Description |
-|---|---|---|
-| `X-Thrifty-Tier` | `lite` | Chosen or final serving model tier (`lite`, `standard`, `pro`) |
-| `X-Thrifty-Model` | `gemini-3.1-flash-lite` | Concrete Vertex AI model identifier used |
-| `X-Thrifty-Cost-Usd` | `0.000045` | Calculated micro-dollar cost rounded to 6 decimal places |
-| `X-Thrifty-Latency-Ms` | `342` | End-to-end gateway execution latency in milliseconds |
-| `X-Thrifty-Cached` | `false` | `true` if served from exact or semantic cache; `false` otherwise |
-| `X-Thrifty-Strategy` | `cascade` | Strategy responsible for dispatch |
-| `X-Thrifty-Escalations` | `0` | Count of model escalations performed (cascade strategy) |
+The gateway sets no custom response headers. Tier, model, cost, cache status and latency are returned in the `/v1/complete` response body (`routing`, `usage`, `cache`, `latency_ms`).
 
 ---
 
@@ -86,15 +77,19 @@ Every generation response includes informative metadata headers:
 - **Response `200 OK`:**
 ```json
 {
-  "daily_spend_usd": 0.428150,
-  "daily_budget_usd": 10.0,
-  "budget_remaining_usd": 9.571850,
-  "request_count": 128,
-  "cache_hit_rate": 0.185,
-  "tier_breakdown": {
-    "lite": 82,
-    "standard": 34,
-    "pro": 12
+  "date": "2026-09-10",
+  "requests": 128,
+  "total_cost_usd": 0.428150,
+  "daily_budget_usd": 2.0,
+  "by_tier": {
+    "lite": { "requests": 82, "cost_usd": 0.021500 },
+    "standard": { "requests": 34, "cost_usd": 0.084650 },
+    "pro": { "requests": 12, "cost_usd": 0.322000 }
+  },
+  "cache": {
+    "lookups": 128,
+    "hits_exact": 9,
+    "hits_semantic": 15
   }
 }
 ```
@@ -123,9 +118,9 @@ Every generation response includes informative metadata headers:
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `prompt` | String | Yes | - | Prompt text (length >= 1) |
-| `strategy` | Enum | No | `cascade` | `fixed`, `semantic`, `classifier`, `cascade` |
+| `strategy` | Enum | No | `fixed` | `fixed`, `semantic`, `classifier`, `cascade` |
 | `tier` | Enum | No | `null` | Required only if `strategy == fixed`; optional override |
-| `temperature` | Float | No | `0.7` | Temperature (0.0 to 2.0) |
+| `temperature` | Float | No | `0.2` | Temperature (0.0 to 2.0). Responses are cached only when `temperature <= 0.3` |
 | `max_output_tokens` | Integer | No | `null` | Max output tokens; falls back to the gateway's `MAX_OUTPUT_TOKENS` (default 8192, which includes Gemini 3.x thinking tokens) |
 | `json_schema` | Object | No | `null` | Optional JSON Schema definition for strict output validation |
 | `use_cache` | Boolean | No | `true` | Whether to read from and write to the semantic cache |
@@ -133,20 +128,40 @@ Every generation response includes informative metadata headers:
 #### Response `200 OK`
 ```json
 {
-  "text": "TCP is connection-oriented and ensures reliable, ordered packet delivery through acknowledgments, whereas UDP is connectionless and prioritizes minimal latency over guaranteed delivery.",
-  "tier": "lite",
-  "model": "gemini-3.1-flash-lite",
-  "strategy": "cascade",
-  "escalations": 0,
-  "cost_usd": 0.000034,
-  "latency_ms": 284,
-  "cached": false,
-  "tokens": {
-    "prompt_tokens": 18,
-    "candidates_tokens": 42,
+  "request_id": "req_3f9c2a1b7d",
+  "output": "TCP is connection-oriented and ensures reliable, ordered packet delivery through acknowledgments, whereas UDP is connectionless and prioritizes minimal latency over guaranteed delivery.",
+  "routing": {
+    "strategy": "cascade",
+    "tier": "lite",
+    "model": "gemini-3.1-flash-lite",
+    "reason": "cascade accepted at lite (confidence 95)",
+    "attempts": [
+      {
+        "role": "completion",
+        "tier": "lite",
+        "model": "gemini-3.1-flash-lite",
+        "latency_ms": 284,
+        "input_tokens": 18,
+        "output_tokens": 42,
+        "thinking_tokens": 0,
+        "cost_usd": 0.000068,
+        "accepted": true,
+        "reject_reason": null
+      }
+    ]
+  },
+  "usage": {
+    "input_tokens": 18,
+    "output_tokens": 42,
     "thinking_tokens": 0,
-    "total_tokens": 60
-  }
+    "total_cost_usd": 0.000068
+  },
+  "cache": {
+    "hit": false,
+    "kind": null,
+    "similarity": null
+  },
+  "latency_ms": 284
 }
 ```
 
@@ -167,7 +182,7 @@ All error responses adhere to a consistent JSON error schema:
 | HTTP Status | Error Code | Cause |
 |---|---|---|
 | `401 Unauthorized` | `UNAUTHORIZED` | Missing or invalid API key |
-| `402 Payment Required`| `BUDGET_EXCEEDED`| `daily_spend_usd >= daily_budget_usd` |
+| `429 Too Many Req` | `DAILY_BUDGET_EXCEEDED` | `total_cost_usd >= daily_budget_usd`; checked before any model call |
 | `422 Unprocessable` | `VALIDATION_ERROR`| Malformed request payload, empty prompt, or invalid strategy |
 | `429 Too Many Req` | `RATE_LIMIT_EXCEEDED`| Slowapi client IP rate limit threshold exceeded |
 | `500 Internal Error` | `INTERNAL_ERROR` | Unhandled upstream or provider error |

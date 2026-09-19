@@ -33,8 +33,8 @@ This document tracks the phased implementation milestones for the Thrifty Router
 ### Phase 2: Pre-Routing Strategies
 - [x] Built `Embedder` service using `gemini-embedding-001` with L2 normalization (768 dimensions).
 - [x] Implemented `SemanticRouter` comparing prompt embeddings against tier centroids.
-- [x] Implemented `ClassifierRouter` executing few-shot zero-temperature classification on the `lite` tier (`gemini-3.1-flash-lite`).
-- [x] Added automated fallback to `standard` tier upon classifier schema failure or network timeout.
+- [x] Implemented `ClassifierRouter` executing few-shot zero-temperature classification on the tier named by `classifier.tier` (currently `lite`).
+- [x] Added automated fallback to `default_tier` (currently `lite`) when the classifier call fails or returns an unknown tier.
 
 ### Phase 3: Cascade Strategy
 - [x] Created `CascadeStrategy` orchestrating progressive tier escalation (`lite` -> `standard` -> `pro`).
