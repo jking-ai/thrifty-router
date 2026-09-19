@@ -4,7 +4,7 @@ This file provides guidance to AI coding agents when working with code in this r
 
 ## Project Overview
 
-Thrifty Router (`thrifty-router`) is an open-source, cost-optimizing LLM proxy for Google Cloud Vertex AI (Gemini 2.5 / 1.5). It dynamically routes incoming prompts to the cheapest tier (`lite`, `standard`, `pro`) capable of handling them with high fidelity, while enforcing spend ceilings, circuit breakers, and sub-10ms semantic caching.
+Thrifty Router (`thrifty-router`) is an open-source, cost-optimizing LLM proxy for Google Cloud Vertex AI (Gemini 3.1 Flash-Lite, Gemini 3 Flash, Gemini 3.1 Pro). It dynamically routes incoming prompts to the cheapest tier (`lite`, `standard`, `pro`) capable of handling them with high fidelity, while enforcing spend ceilings, circuit breakers, and sub-10ms semantic caching.
 
 - **Backend:** FastAPI 0.115+ (Python 3.12+) on Google Cloud Run
 - **Evaluation / Harness:** Automated 300-sample golden evaluation runner with Gemini Pro LLM-as-a-judge scoring
@@ -95,18 +95,18 @@ Cloud Run (FastAPI + Slowapi Rate Limiter)
        ├─► Route Strategy Orchestration:
        │     ├─ fixed: Static tier configuration
        │     ├─ semantic: gemini-embedding-001 cosine similarity against tier anchors
-       │     ├─ classifier: Zero-temperature few-shot prompt to Gemini 2.5 Flash
+       │     ├─ classifier: Zero-temperature few-shot prompt to the tier named by classifier.tier (currently lite)
        │     └─ cascade: Attempt lite -> verify -> escalate to standard -> verify -> pro
        │
        ├─► TierClient (google-genai SDK Vertex AI call)
        │
-       └─► Record Usage & Return Cost Headers (X-Thrifty-Tier, X-Thrifty-Cost-Usd, etc.)
+       └─► Record Usage & Return CompleteResponse (routing, usage, cache, latency_ms)
 ```
 
 ### Key Design Decisions
 - **Vertex AI Client:** Uses official `google-genai` SDK with `vertexai=True`, avoiding deprecated libraries.
 - **Micro-Dollar Ledger:** Token costs calculated via official million-token rates, treating thinking tokens as output tokens, rounded to 6 decimal places.
-- **Thread-Safe Spend Guardrail:** Process-level in-memory budget tracker (`threading.Lock`) fails closed with `402 Payment Required` when spend meets or exceeds `DAILY_BUDGET_USD`.
+- **Thread-Safe Spend Guardrail:** Process-level in-memory budget tracker (`threading.Lock`) fails closed with `429 DAILY_BUDGET_EXCEEDED` when spend meets or exceeds `DAILY_BUDGET_USD`.
 - **Confidence Escapes in Cascade:** Cascade verifier combines structural checks (finish reason, non-empty, JSON schema) with an optional self-assessed confidence tag (`CONFIDENCE: <0-100>`). If confidence falls below 70, it escalates.
 - **Fail-Safe Caching:** Cache errors log warnings and proceed to live routing without failing client queries.
 
@@ -117,7 +117,7 @@ Cloud Run (FastAPI + Slowapi Rate Limiter)
 | `GCP_PROJECT_ID` | String | `""` | Google Cloud project ID for Vertex AI |
 | `GCP_REGION` | String | `us-central1` | Google Cloud region |
 | `API_KEY` | String | `""` | Master API key required in `X-API-Key` or `Bearer` header |
-| `DAILY_BUDGET_USD` | Float | `10.0` | Daily spend ceiling; 402 returned if exceeded |
+| `DAILY_BUDGET_USD` | Float | `2.0` | Daily spend ceiling; 429 `DAILY_BUDGET_EXCEEDED` returned if exceeded |
 | `DEFAULT_STRATEGY` | Enum | `cascade` | Default routing strategy (`fixed`, `semantic`, `classifier`, `cascade`) |
 | `COMPLETE_LIMITS` | String | `60/minute,1000/day` | Slowapi rate limit per IP for `/v1/complete` |
 | `CACHE_ENABLED` | Boolean | `true` | Enable semantic and exact response caching |

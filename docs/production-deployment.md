@@ -119,7 +119,7 @@ The smoke script tests:
 2. `GET /v1/tiers` lists `lite`, `standard`, and `pro`.
 3. `POST /v1/complete` (fixed strategy) generates valid output.
 4. `POST /v1/complete` (cascade strategy) executes and verifies output.
-5. Response headers include `X-Thrifty-Tier`, `X-Thrifty-Cost-Usd`, and `X-Thrifty-Latency-Ms`.
+5. Each completion body carries `routing` (tier, model, attempts), `usage` (tokens, cost) and `latency_ms`.
 6. Budget and rate limiting behaviors are actively enforced.
 
 ---

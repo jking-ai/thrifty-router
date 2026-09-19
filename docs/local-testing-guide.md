@@ -33,9 +33,9 @@ pytest -k "budget or rate_limit"
 - [`test_config.py`](file:///Users/king/dev/jrk-ai-labs/thrifty-router/backend/tests/test_config.py): Verifies configuration parsing and environment defaults.
 - [`test_auth.py`](file:///Users/king/dev/jrk-ai-labs/thrifty-router/backend/tests/test_auth.py): Verifies missing, invalid, and valid API keys (`X-API-Key` and `Bearer`).
 - [`test_rate_limit.py`](file:///Users/king/dev/jrk-ai-labs/thrifty-router/backend/tests/test_rate_limit.py): Validates Slowapi throttling on `/v1/complete` and unrate-limited `/health`.
-- [`test_budget.py`](file:///Users/king/dev/jrk-ai-labs/thrifty-router/backend/tests/test_budget.py): Validates thread-safe budget enforcement and `402 BUDGET_EXCEEDED` stops.
+- [`test_budget.py`](file:///Users/king/dev/jrk-ai-labs/thrifty-router/backend/tests/test_budget.py): Validates thread-safe budget enforcement and `429 DAILY_BUDGET_EXCEEDED` stops.
 - [`test_semantic.py`](file:///Users/king/dev/jrk-ai-labs/thrifty-router/backend/tests/test_semantic.py): Tests embedding anchor comparisons and fallback mechanisms.
-- [`test_classifier.py`](file:///Users/king/dev/jrk-ai-labs/thrifty-router/backend/tests/test_classifier.py): Tests few-shot classification and fallback to `standard`.
+- [`test_classifier.py`](file:///Users/king/dev/jrk-ai-labs/thrifty-router/backend/tests/test_classifier.py): Tests few-shot classification and fallback to `default_tier` (`lite`).
 - [`test_cascade.py`](file:///Users/king/dev/jrk-ai-labs/thrifty-router/backend/tests/test_cascade.py): Tests multi-tier escalation, schema checking, and confidence validation.
 - [`test_cache.py`](file:///Users/king/dev/jrk-ai-labs/thrifty-router/backend/tests/test_cache.py): Tests exact SHA-256 and cosine similarity vector cache hits.
 

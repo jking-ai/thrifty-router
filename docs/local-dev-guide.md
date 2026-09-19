@@ -99,7 +99,7 @@ curl -X POST http://localhost:8000/v1/complete \
 - Verify that your active Google account or service account has the `roles/aiplatform.user` role assigned in your GCP project.
 - Re-authenticate via `gcloud auth application-default login`.
 
-### Budget Limit Exceeded (`402 Payment Required`)
+### Budget Limit Exceeded (`429 DAILY_BUDGET_EXCEEDED`)
 - The in-memory ledger accumulates spend until reset or server restart.
 - To reset or increase the budget for local testing, update `DAILY_BUDGET_USD` in `backend/.env` or restart the server.
 
