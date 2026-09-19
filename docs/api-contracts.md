@@ -17,7 +17,7 @@ Every generation response includes informative metadata headers:
 | Header | Example | Description |
 |---|---|---|
 | `X-Thrifty-Tier` | `lite` | Chosen or final serving model tier (`lite`, `standard`, `pro`) |
-| `X-Thrifty-Model` | `gemini-2.5-flash` | Concrete Vertex AI model identifier used |
+| `X-Thrifty-Model` | `gemini-3.1-flash-lite` | Concrete Vertex AI model identifier used |
 | `X-Thrifty-Cost-Usd` | `0.000045` | Calculated micro-dollar cost rounded to 6 decimal places |
 | `X-Thrifty-Latency-Ms` | `342` | End-to-end gateway execution latency in milliseconds |
 | `X-Thrifty-Cached` | `false` | `true` if served from exact or semantic cache; `false` otherwise |
@@ -50,27 +50,28 @@ Every generation response includes informative metadata headers:
 - **Response `200 OK`:**
 ```json
 {
+  "default_tier": "lite",
   "tiers": [
     {
       "name": "lite",
-      "model": "gemini-2.5-flash",
-      "input_cost_per_m": 0.075,
-      "output_cost_per_m": 0.30,
-      "description": "Fastest and cheapest tier for simple tasks"
+      "model": "gemini-3.1-flash-lite",
+      "price_per_m_input_usd": 0.25,
+      "price_per_m_output_usd": 1.50,
+      "description": "Fast lookup, formatting, and short classification"
     },
     {
       "name": "standard",
-      "model": "gemini-1.5-flash",
-      "input_cost_per_m": 0.075,
-      "output_cost_per_m": 0.30,
-      "description": "General-purpose workhorse model"
+      "model": "gemini-3-flash-preview",
+      "price_per_m_input_usd": 0.50,
+      "price_per_m_output_usd": 3.00,
+      "description": "Structured extraction and multi-step bounded tasks"
     },
     {
       "name": "pro",
-      "model": "gemini-2.5-pro",
-      "input_cost_per_m": 1.25,
-      "output_cost_per_m": 5.00,
-      "description": "Maximum reasoning capabilities for complex tasks"
+      "model": "gemini-3.1-pro-preview",
+      "price_per_m_input_usd": 2.00,
+      "price_per_m_output_usd": 12.00,
+      "description": "Deep reasoning, code architecture, and open-ended synthesis"
     }
   ]
 }
@@ -134,7 +135,7 @@ Every generation response includes informative metadata headers:
 {
   "text": "TCP is connection-oriented and ensures reliable, ordered packet delivery through acknowledgments, whereas UDP is connectionless and prioritizes minimal latency over guaranteed delivery.",
   "tier": "lite",
-  "model": "gemini-2.5-flash",
+  "model": "gemini-3.1-flash-lite",
   "strategy": "cascade",
   "escalations": 0,
   "cost_usd": 0.000034,

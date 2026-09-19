@@ -4,7 +4,7 @@ This file provides guidance to AI coding agents when working with code in this r
 
 ## Project Overview
 
-Thrifty Router (`thrifty-router`) is an open-source, cost-optimizing LLM proxy for Google Cloud Vertex AI (Gemini 2.5 / 1.5). It dynamically routes incoming prompts to the cheapest tier (`lite`, `standard`, `pro`) capable of handling them with high fidelity, while enforcing spend ceilings, circuit breakers, and sub-10ms semantic caching.
+Thrifty Router (`thrifty-router`) is an open-source, cost-optimizing LLM proxy for Google Cloud Vertex AI (Gemini 3.1 Flash-Lite, Gemini 3 Flash, Gemini 3.1 Pro). It dynamically routes incoming prompts to the cheapest tier (`lite`, `standard`, `pro`) capable of handling them with high fidelity, while enforcing spend ceilings, circuit breakers, and sub-10ms semantic caching.
 
 - **Backend:** FastAPI 0.115+ (Python 3.12+) on Google Cloud Run
 - **Evaluation / Harness:** Automated 300-sample golden evaluation runner with Gemini Pro LLM-as-a-judge scoring
@@ -95,7 +95,7 @@ Cloud Run (FastAPI + Slowapi Rate Limiter)
        ├─► Route Strategy Orchestration:
        │     ├─ fixed: Static tier configuration
        │     ├─ semantic: gemini-embedding-001 cosine similarity against tier anchors
-       │     ├─ classifier: Zero-temperature few-shot prompt to Gemini 2.5 Flash
+       │     ├─ classifier: Zero-temperature few-shot prompt to the lite tier (gemini-3.1-flash-lite)
        │     └─ cascade: Attempt lite -> verify -> escalate to standard -> verify -> pro
        │
        ├─► TierClient (google-genai SDK Vertex AI call)

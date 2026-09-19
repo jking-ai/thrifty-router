@@ -26,14 +26,14 @@ This document tracks the phased implementation milestones for the Thrifty Router
 - [x] Implemented constant-time API key authentication (`secrets.compare_digest`).
 - [x] Configured Slowapi rate limiting respecting `X-Forwarded-For`.
 - [x] Created thread-safe `CostLedger` enforcing `DAILY_BUDGET_USD` circuit breaker.
-- [x] Wrapped `google-genai` client for Vertex AI (`gemini-2.5-flash`, `gemini-1.5-flash`, `gemini-2.5-pro`).
+- [x] Wrapped `google-genai` client for Vertex AI (`gemini-3.1-flash-lite`, `gemini-3-flash-preview`, `gemini-3.1-pro-preview`).
 - [x] Implemented API routers: `/health`, `/v1/tiers`, `/v1/usage`, `/v1/complete`.
 - [x] Authored containerization assets: `backend/Dockerfile`, `scripts/deploy.sh`, `backend/scripts/smoke.sh`.
 
 ### Phase 2: Pre-Routing Strategies
 - [x] Built `Embedder` service using `gemini-embedding-001` with L2 normalization (768 dimensions).
 - [x] Implemented `SemanticRouter` comparing prompt embeddings against tier centroids.
-- [x] Implemented `ClassifierRouter` executing few-shot zero-temperature classification on `gemini-2.5-flash`.
+- [x] Implemented `ClassifierRouter` executing few-shot zero-temperature classification on the `lite` tier (`gemini-3.1-flash-lite`).
 - [x] Added automated fallback to `standard` tier upon classifier schema failure or network timeout.
 
 ### Phase 3: Cascade Strategy

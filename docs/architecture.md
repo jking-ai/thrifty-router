@@ -45,8 +45,9 @@ Thrifty Router acts as an intelligent intermediary between LLM client applicatio
 │                 Google Cloud Vertex AI                 │
 │                                                        │
 │   [lite]               [standard]             [pro]    │
-│ Gemini 2.5 Flash   Gemini 1.5 Flash      Gemini 2.5 Pro│
-│ ($0.075 / $0.30)   ($0.075 / $0.30)      ($1.25 / $5.0)│
+│ Gemini 3.1         Gemini 3 Flash      Gemini 3.1 Pro  │
+│ Flash-Lite         (preview)           (preview)       │
+│ ($0.25 / $1.50)    ($0.50 / $3.00)     ($2.00 / $12.00)│
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -56,9 +57,9 @@ Model tiers are defined in `router.yaml` and loaded during application startup. 
 
 | Tier | Vertex AI Model | Input Price / 1M | Output Price / 1M | Use Cases |
 |---|---|---|---|---|
-| `lite` | `gemini-2.5-flash` | $0.075 | $0.30 | Greetings, factual lookups, classifications, extraction |
-| `standard` | `gemini-1.5-flash` | $0.075 | $0.30 | Summaries, routine transformations, standard drafting |
-| `pro` | `gemini-2.5-pro` | $1.250 | $5.00 | Complex reasoning, multi-step math, code synthesis, nuanced evaluation |
+| `lite` | `gemini-3.1-flash-lite` | $0.25 | $1.50 | Fast lookup, formatting, and short classification |
+| `standard` | `gemini-3-flash-preview` | $0.50 | $3.00 | Structured extraction and multi-step bounded tasks |
+| `pro` | `gemini-3.1-pro-preview` | $2.00 | $12.00 | Deep reasoning, code architecture, and open-ended synthesis |
 
 ### Micro-Dollar Cost Ledger
 The cost formula accounts for input tokens, generated output tokens, and chain-of-thought/thinking tokens:
@@ -78,7 +79,7 @@ Pre-computes 768-dimensional L2-normalized embeddings for curated prompt archety
 3. Assign the tier of the closest matching centroid above a confidence margin.
 
 ### 3. Classifier (`classifier`)
-Sends the user prompt to a fast zero-temperature classifier prompt run against Gemini 2.5 Flash. The classifier returns a strict JSON object:
+Sends the user prompt to a fast zero-temperature classifier prompt run against the `lite` tier (`gemini-3.1-flash-lite`, set by `classifier.tier` in `router.yaml`). The classifier returns a strict JSON object:
 ```json
 {
   "tier": "lite|standard|pro",
